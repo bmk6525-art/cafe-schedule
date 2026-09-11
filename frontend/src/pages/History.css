@@ -1,0 +1,32 @@
+.emp-month-select { padding:5px 10px; border:1.5px solid #d0d4f0; border-radius:6px; font-size:13px; background:#fff; outline:none; font-family:inherit; }
+.emp-empty { text-align:center; color:#8b8fa8; padding:24px 0; font-size:14px; }
+.card { background:#fff; border-radius:14px; padding:24px; box-shadow:0 1px 4px rgba(0,0,0,0.08); margin-bottom:20px; }
+.page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+.page-title { font-size:22px; font-weight:700; color:#1a1d2e; margin:0 0 4px; }
+.page-subtitle { font-size:14px; color:#8b8fa8; margin:0; }
+.emp-table { width:100%; border-collapse:collapse; font-size:14px; }
+.emp-table th { text-align:left; padding:10px 14px; background:#f8f9ff; font-size:12px; color:#8b8fa8; font-weight:600; }
+.emp-table td { padding:12px 14px; border-bottom:1px solid #f0f2fa; }
+.emp-name { font-weight:600; color:#1a1d2e; }
+.btn--ghost { background:none; color:#4f7cff; padding:6px 12px; border:none; cursor:pointer; font-family:inherit; font-weight:600; }
+.btn--ghost:hover { background:#f0f4ff; border-radius:6px; }
+.btn--sm { padding:6px 12px; font-size:13px; }
+
+.hist-table-wrap { overflow-x:auto; }
+.hist-row--selected td { background:#f0f4ff; }
+.hist-date { font-size:12px; color:#8b8fa8; white-space:nowrap; }
+.hist-reason {
+  font-size:12px; font-weight:600; padding:2px 8px; border-radius:5px;
+  background:#f0f2fa; color:#4a4d6a;
+}
+.hist-detail-td { padding:0; background:#f8f9ff; }
+.hist-diff { display:flex; gap:0; }
+.hist-diff-col { flex:1; padding:16px 20px; }
+.hist-diff-col--before { border-right:2px solid #e0e4f0; }
+.hist-diff-label { font-size:12px; font-weight:700; margin:0 0 8px; color:#8b8fa8; }
+.hist-diff-col--before .hist-diff-label { color:#c0392b; }
+.hist-diff-col--after .hist-diff-label { color:#1a7a4a; }
+.hist-pre {
+  margin:0; font-family:monospace; font-size:12px; color:#1a1d2e;
+  white-space:pre-wrap; word-break:break-all;
+}

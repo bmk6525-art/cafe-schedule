@@ -1,0 +1,202 @@
+.sch-header { display:flex; justify-content:space-between; align-items:flex-start; }
+.sch-header-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+.gen-result {
+  padding: 14px 18px; border-radius: 10px; margin-bottom: 16px; font-size: 14px;
+}
+.gen-result--ok { background:#e6f9f0; color:#1a7a4a; }
+.gen-result--warn { background:#fff8e6; color:#8a6000; }
+.gen-result--zero { background:#fdeaea; color:#c0392b; }
+.gen-zero-help { margin-top:10px; font-size:13px; }
+.gen-zero-help p { margin:0 0 8px; font-weight:600; }
+.gen-zero-help ul { margin:0; padding-left:18px; line-height:2; }
+.gen-warnings { margin: 8px 0 0 16px; padding: 0; font-size: 13px; }
+.gen-warnings li { margin-bottom: 4px; }
+
+.validation-panel {
+  background:#fff8e6; border:1px solid #f0c040; border-radius:10px;
+  padding:14px 18px; margin-bottom:16px;
+}
+.validation-title { font-size:14px; font-weight:700; margin:0 0 10px; color:#8a6000; }
+.validation-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+.validation-item { display:flex; align-items:center; gap:8px; font-size:13px; color:#4a4d6a; }
+.validation-badge {
+  padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;
+  background:#e74c3c; color:#fff; white-space:nowrap;
+}
+
+.sch-toolbar { margin-bottom:12px; }
+
+.week-tabs { display:flex; gap:6px; margin-bottom:16px; }
+.week-tab {
+  padding:8px 18px; border-radius:8px; border:1.5px solid #e0e4f0;
+  background:#fff; font-size:14px; font-weight:600; color:#4a4d6a;
+  cursor:pointer; font-family:inherit; transition:all 0.15s;
+}
+.week-tab:hover { border-color:#4f7cff; color:#4f7cff; }
+.week-tab--active { background:#4f7cff; border-color:#4f7cff; color:#fff; }
+
+.sch-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap:12px;
+}
+
+.sch-day-col { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.sch-day-header {
+  background:#f0f4ff; padding:10px 14px;
+  font-size:13px; font-weight:700; color:#4f7cff;
+  text-align:center; border-bottom:1px solid #e8edff;
+}
+.sch-day-body { padding:8px; display:flex; flex-direction:column; gap:6px; min-height:60px; }
+.sch-empty-day { text-align:center; color:#c8cad8; font-size:13px; padding:12px 0; }
+
+.sch-card {
+  border-radius:8px; padding:8px 10px;
+  border-left:3px solid #4f7cff; background:#f8f9ff;
+}
+.sch-card--regular { border-color:#3a65e8; background:#f0f4ff; }
+.sch-card--part { border-color:#e87c00; background:#fff8f0; }
+.sch-card--confirmed { border-color:#1a7a4a; background:#f0fdf6; }
+.sch-card--locked { border-color:#8b8fa8; background:#f8f9ff; opacity:0.7; }
+
+.sch-card-name { font-size:13px; font-weight:700; color:#1a1d2e; margin-bottom:2px; }
+.sch-card-time { font-size:12px; color:#4f7cff; font-weight:600; }
+.sch-card-store { font-size:12px; color:#4a4d6a; font-weight:600; margin-bottom:4px; }
+.sch-card-actions { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:4px; }
+
+.sch-status {
+  font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;
+}
+.sch-status--draft { background:#f0f2fa; color:#8b8fa8; }
+.sch-status--confirmed { background:#e6f9f0; color:#1a7a4a; }
+.sch-status--locked { background:#e0e4f0; color:#4a4d6a; }
+
+.sch-btn {
+  background:none; border:none; font-size:11px; color:#4f7cff;
+  cursor:pointer; padding:2px 4px; font-family:inherit;
+}
+.sch-btn:hover { text-decoration:underline; }
+.sch-btn--del { color:#c0392b; }
+
+/* 공통 재사용 */
+.emp-filters { display:flex; gap:6px; flex-wrap:wrap; }
+.filter-btn {
+  padding:7px 14px; border-radius:8px; border:1.5px solid #e0e4f0;
+  background:#fff; font-size:13px; font-weight:500; color:#4a4d6a;
+  cursor:pointer; font-family:inherit; transition:all 0.15s;
+}
+.filter-btn:hover { border-color:#4f7cff; color:#4f7cff; }
+.filter-btn--active { background:#4f7cff; border-color:#4f7cff; color:#fff; }
+
+.emp-month-select {
+  padding:5px 10px; border:1.5px solid #d0d4f0; border-radius:6px;
+  font-size:13px; background:#fff; outline:none; font-family:inherit;
+}
+.btn { padding:10px 20px; border-radius:8px; font-size:14px; font-weight:600; border:none; cursor:pointer; font-family:inherit; }
+.btn--primary { background:#4f7cff; color:#fff; }
+.btn--primary:hover:not(:disabled) { background:#3a65e8; }
+.btn--primary:disabled { background:#c8cad8; cursor:not-allowed; }
+.btn--secondary { background:#f0f2fa; color:#4a4d6a; }
+.btn--secondary:hover { background:#e4e7f5; }
+
+/* ── 뷰 전환 ── */
+.view-toggle { display:flex; gap:4px; }
+.view-toggle-btn {
+  padding:7px 14px; border-radius:8px; border:1.5px solid #e0e4f0;
+  background:#fff; font-size:13px; font-weight:600; color:#4a4d6a;
+  cursor:pointer; font-family:inherit; transition:all 0.15s;
+}
+.view-toggle-btn--active { background:#4f7cff; border-color:#4f7cff; color:#fff; }
+
+/* ── 월간 캘린더 ── */
+.cal-wrap { display:flex; flex-direction:column; gap:16px; }
+
+.cal-save-bar { display:flex; align-items:center; gap:12px; }
+.cal-save-hint { font-size:12px; color:#8b8fa8; }
+
+.cal-capture { background:#fff; border-radius:14px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+.cal-capture-title {
+  font-size:16px; font-weight:700; color:#1a1d2e;
+  text-align:center; margin-bottom:12px; letter-spacing:0.5px;
+}
+
+.cal-grid {
+  display:grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-radius:14px; overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);
+  border:1px solid #e8edff;
+  background:#e8edff;
+  gap:1px;
+}
+
+.cal-header-cell {
+  background:#4f7cff; color:#fff;
+  font-size:12px; font-weight:700;
+  text-align:center; padding:10px 0;
+}
+.cal-header-cell--weekend { background:#7b9cff; }
+
+.cal-cell {
+  background:#fff; padding:8px;
+  min-height:100px; cursor:pointer;
+  transition:background 0.1s;
+}
+.cal-cell:hover { background:#f5f7ff; }
+.cal-cell--empty { background:#f8f9ff; cursor:default; min-height:100px; }
+.cal-cell--today .cal-day-num {
+  background:#4f7cff; color:#fff;
+  border-radius:50%; width:24px; height:24px;
+  display:flex; align-items:center; justify-content:center;
+}
+.cal-cell--selected { background:#f0f4ff; outline:2px solid #4f7cff; outline-offset:-2px; }
+.cal-cell--weekend { background:#fdfcff; }
+.cal-cell--weekend .cal-day-num { color:#e87c00; }
+
+.cal-day-num {
+  font-size:13px; font-weight:700; color:#1a1d2e;
+  margin-bottom:4px; width:24px; height:24px;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.cal-chips { display:flex; flex-direction:column; gap:3px; }
+.cal-chip {
+  font-size:10px; font-weight:600; padding:3px 5px;
+  border-radius:4px; background:#e8f0ff; color:#3a65e8;
+  display:flex; flex-direction:column; gap:1px;
+}
+.cal-chip-top { display:flex; align-items:center; gap:3px; }
+.cal-chip-top em { font-style:normal; font-weight:700; opacity:0.75; }
+.cal-chip-time { font-size:9px; font-weight:700; opacity:0.85; letter-spacing:-0.2px; }
+.cal-chip--regular { background:#e8f0ff; color:#3a65e8; }
+.cal-chip--part { background:#fff3e0; color:#c06000; }
+.cal-chip--confirmed { opacity:0.8; }
+.cal-chip--more { background:#f0f2fa; color:#8b8fa8; flex-direction:row; font-size:10px; }
+
+/* ── 날짜 상세 패널 ── */
+.cal-detail-panel {
+  background:#fff; border-radius:14px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.10);
+  padding:20px; border:1.5px solid #e0e8ff;
+}
+.cal-detail-header {
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  font-size:16px; font-weight:700; color:#1a1d2e;
+}
+.cal-detail-count {
+  font-size:13px; font-weight:600; padding:2px 10px;
+  background:#e8f0ff; color:#4f7cff; border-radius:20px;
+}
+.cal-detail-close {
+  margin-left:auto; background:none; border:none; font-size:16px;
+  color:#8b8fa8; cursor:pointer; padding:2px 6px;
+}
+.cal-detail-close:hover { color:#1a1d2e; }
+.cal-detail-list { display:flex; flex-wrap:wrap; gap:10px; }
+.cal-detail-list .sch-card { min-width:160px; flex:1; }
+
+.coming-soon { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:300px; color:#8b8fa8; gap:12px; }
+.coming-soon-icon { font-size:48px; }
+.coming-soon-title { font-size:18px; font-weight:600; color:#4a4d6a; margin:0; }
+.coming-soon-desc { font-size:14px; margin:0; text-align:center; max-width:400px; line-height:1.7; }

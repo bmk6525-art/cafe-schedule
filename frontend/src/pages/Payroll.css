@@ -1,0 +1,96 @@
+.pay-header { display:flex; justify-content:space-between; align-items:flex-start; }
+
+.pay-summary-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px;
+}
+.pay-summary-card {
+  background:#fff; border-radius:12px; padding:20px 24px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.08);
+}
+.pay-sum-label { margin:0 0 6px; font-size:13px; color:#8b8fa8; }
+.pay-sum-value { margin:0; font-size:22px; font-weight:700; color:#1a1d2e; }
+
+.pay-content {
+  display:grid; grid-template-columns:1fr 280px; gap:20px; align-items:start;
+}
+.pay-table-wrap { overflow-x:auto; }
+.pay-notice {
+  font-size:12px; color:#8a6000; background:#fffbe6; border:1px solid #f0c040;
+  border-radius:8px; padding:8px 14px; margin-bottom:14px;
+}
+
+.pay-row--selected td { background:#f0f4ff; }
+.pay-store-tags { display:flex; gap:4px; flex-wrap:wrap; }
+.pay-store-tag {
+  font-size:11px; font-weight:600; padding:2px 7px;
+  background:#e8f0ff; color:#3a65e8; border-radius:5px; white-space:nowrap;
+}
+.pay-holiday { color:#c0392b; font-weight:700; }
+.pay-total { font-weight:700; color:#1a7a4a; }
+
+/* 일별 상세 */
+.pay-detail { margin-top:20px; padding-top:18px; border-top:2px solid #e8edff; }
+
+.pay-detail-header {
+  display:flex; align-items:center; gap:12px; margin-bottom:14px;
+}
+.pay-detail-name { font-size:17px; font-weight:700; color:#1a1d2e; }
+.pay-detail-wage { font-size:13px; color:#8b8fa8; background:#f0f2fa; padding:3px 10px; border-radius:20px; }
+
+.pay-week-section { margin-bottom:12px; }
+
+.pay-week-label-row {
+  display:flex; align-items:center; gap:10px;
+  padding:6px 10px; background:#f0f2fa; border-radius:6px;
+  font-size:13px; font-weight:700; color:#4a4d6a; margin-bottom:4px;
+}
+.pay-week-label-row--eligible { background:#fff3e0; color:#c06000; }
+.pay-holiday-badge {
+  margin-left:auto; font-size:12px; font-weight:700;
+  background:#fde8e8; color:#c0392b; padding:2px 8px; border-radius:10px;
+}
+
+.pay-day-row {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px; border-bottom:1px solid #f5f5f5; font-size:13px;
+  flex-wrap:wrap;
+}
+.pay-day-row:last-child { border-bottom:none; }
+.pay-day-date { color:#8b8fa8; min-width:36px; }
+.pay-day-dow { font-weight:600; color:#4a4d6a; min-width:36px; }
+.pay-day-time { color:#4f7cff; font-weight:600; min-width:100px; }
+.pay-day-hours { color:#8b8fa8; min-width:52px; }
+.pay-day-store { color:#8b8fa8; flex:1; }
+.pay-day-actual {
+  font-size:10px; font-weight:700; padding:1px 6px;
+  background:#e6f9f0; color:#1a7a4a; border-radius:4px;
+}
+.pay-day-pay { font-weight:700; color:#1a1d2e; margin-left:auto; }
+
+.pay-detail-total {
+  margin-top:14px; padding:14px 10px;
+  background:#f8f9ff; border-radius:10px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.pay-detail-total-row {
+  display:flex; justify-content:space-between; font-size:14px; color:#4a4d6a;
+}
+.pay-detail-total-row--final {
+  font-size:16px; font-weight:700; color:#1a1d2e;
+  border-top:1.5px solid #e0e4f0; padding-top:10px; margin-top:4px;
+}
+
+.pay-store-wrap { padding:24px; }
+.pay-store-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 0; border-bottom:1px solid #f0f2fa; font-size:14px;
+}
+.pay-store-row:last-child { border-bottom:none; }
+.pay-store-name { color:#4a4d6a; }
+.pay-store-amount { font-weight:700; color:#1a1d2e; }
+.pay-store-total { font-weight:700; color:#4f7cff; border-top:2px solid #e0e4f0; border-bottom:none; margin-top:4px; padding-top:12px; }
+
+@media (max-width:900px) {
+  .pay-content { grid-template-columns:1fr; }
+  .pay-summary-grid { grid-template-columns:1fr 1fr; }
+}

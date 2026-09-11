@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: cafe-backend
+    volumes:
+      - cafe-data:/data
+    environment:
+      - DATABASE_URL=sqlite:////data/cafe_schedule.db
+      - DEBUG=false
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: cafe-frontend
+    ports:
+      - "5000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  cafe-data:

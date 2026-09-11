@@ -1,0 +1,140 @@
+.modal--wide {
+  max-width: 760px;
+}
+
+.modal-subtitle {
+  font-size: 13px;
+  color: #8b8fa8;
+  margin: 4px 0 0;
+}
+
+.wp-loading {
+  text-align: center;
+  color: #8b8fa8;
+  padding: 40px 0;
+}
+
+.wp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.wp-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b8fa8;
+  border-bottom: 2px solid #eef0f8;
+}
+
+.wp-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f4f5fb;
+  vertical-align: middle;
+}
+
+.wp-row--off td {
+  background: #fafafa;
+}
+
+.wp-row--off td:not(:first-child):not(.wp-toggle) {
+  opacity: 0.35;
+}
+
+.day-badge {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f0f4ff;
+  color: #4f7cff;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  line-height: 28px;
+}
+
+.day-badge--weekend {
+  background: #fff0f0;
+  color: #e74c3c;
+}
+
+.wp-time-input {
+  padding: 7px 10px;
+  border: 1.5px solid #e0e4f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1a1d2e;
+  outline: none;
+  width: 120px;
+  font-family: inherit;
+}
+
+.wp-time-input:focus { border-color: #4f7cff; }
+.wp-time-input:disabled { background: #f8f9ff; color: #c8cad8; cursor: not-allowed; }
+
+.wp-store-select {
+  padding: 7px 10px;
+  border: 1.5px solid #e0e4f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1a1d2e;
+  background: #fff;
+  outline: none;
+  min-width: 120px;
+  font-family: inherit;
+}
+
+.wp-store-select:focus { border-color: #4f7cff; }
+.wp-store-select:disabled { background: #f8f9ff; cursor: not-allowed; }
+
+/* 토글 스위치 */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background-color: #e0e4f0;
+  border-radius: 22px;
+  transition: background-color 0.2s;
+}
+
+.toggle-track::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle input:checked + .toggle-track {
+  background-color: #e74c3c;
+}
+
+.toggle input:checked + .toggle-track::before {
+  transform: translateX(18px);
+}
+
+.save-ok {
+  font-size: 14px;
+  color: #1a7a4a;
+  margin-right: auto;
+}

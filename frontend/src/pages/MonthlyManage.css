@@ -1,0 +1,46 @@
+.emp-month-select { padding:5px 10px; border:1.5px solid #d0d4f0; border-radius:6px; font-size:13px; background:#fff; outline:none; font-family:inherit; }
+.emp-empty { text-align:center; color:#8b8fa8; padding:24px 0; font-size:14px; }
+.card { background:#fff; border-radius:14px; padding:24px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+.page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; }
+.page-title { font-size:22px; font-weight:700; color:#1a1d2e; margin:0 0 4px; }
+.page-subtitle { font-size:14px; color:#8b8fa8; margin:0; }
+.card-title { font-size:16px; font-weight:600; color:#1a1d2e; margin:0 0 16px; }
+.btn { padding:10px 20px; border-radius:8px; font-size:14px; font-weight:600; border:none; cursor:pointer; font-family:inherit; }
+.btn--primary { background:#4f7cff; color:#fff; }
+.btn--primary:hover { background:#3a65e8; }
+.btn--secondary { background:#f0f2fa; color:#4a4d6a; }
+.btn--secondary:hover { background:#e4e7f5; }
+
+.mm-msg {
+  padding:12px 18px; border-radius:8px; margin-bottom:16px; font-size:14px; font-weight:600;
+}
+.mm-msg--ok { background:#e6f9f0; color:#1a7a4a; }
+.mm-msg--err { background:#fdeaea; color:#c0392b; }
+
+.mm-grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:20px;
+}
+.mm-card { padding:24px; }
+
+.mm-stat-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 0; border-bottom:1px solid #f0f2fa; font-size:14px;
+}
+.mm-stat-row:last-of-type { border-bottom:none; }
+
+.mm-badge {
+  font-size:12px; font-weight:700; padding:3px 10px; border-radius:6px;
+}
+.mm-badge--done { background:#e6f9f0; color:#1a7a4a; }
+.mm-badge--draft { background:#f0f2fa; color:#8b8fa8; }
+
+.mm-finalized-at { font-size:12px; color:#8b8fa8; margin:8px 0 0; }
+.mm-action-btn { margin-top:18px; width:100%; }
+
+.mm-desc { font-size:13px; color:#8b8fa8; margin:0 0 16px; }
+.mm-copy-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.mm-arrow { font-size:18px; color:#4f7cff; }
+.mm-target { font-size:14px; font-weight:700; color:#1a1d2e; }
+
+.mm-nav-btns { display:flex; gap:10px; }
+.mm-nav-btns .btn { flex:1; text-align:center; }
