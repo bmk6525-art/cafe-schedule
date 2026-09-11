@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import './MainLayout.css';
 
@@ -13,9 +14,16 @@ const NAV_ITEMS = [
 ];
 
 export default function MainLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="app-layout">
-      <aside className="sidebar">
+      {/* 모바일 오버레이 */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar--open' : ''}`}>
         <div className="sidebar-header">
           <h1 className="sidebar-title">카페 스케줄</h1>
           <p className="sidebar-subtitle">근무 관리 시스템</p>
@@ -29,6 +37,7 @@ export default function MainLayout() {
               className={({ isActive }) =>
                 `nav-item ${isActive ? 'nav-item--active' : ''}`
               }
+              onClick={() => setSidebarOpen(false)}
             >
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{item.label}</span>
@@ -39,7 +48,15 @@ export default function MainLayout() {
           <p>PHASE 14 완료 · v1.0.0</p>
         </div>
       </aside>
+
       <main className="main-content">
+        <button
+          className="mobile-menu-btn"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="메뉴 열기"
+        >
+          ☰
+        </button>
         <Outlet />
       </main>
     </div>

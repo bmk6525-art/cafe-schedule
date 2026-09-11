@@ -104,6 +104,71 @@
 }
 
 /* ───────────────────────────────────────────────
+   모바일 햄버거 버튼
+   ─────────────────────────────────────────────── */
+
+.mobile-menu-btn {
+  display: none;
+}
+
+/* ───────────────────────────────────────────────
+   모바일 오버레이
+   ─────────────────────────────────────────────── */
+
+.sidebar-overlay {
+  display: none;
+}
+
+/* ───────────────────────────────────────────────
+   반응형 (모바일)
+   ─────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-220px);
+    transition: transform 0.25s ease;
+    z-index: 200;
+  }
+
+  .sidebar--open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 199;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+    padding-top: 60px;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 150;
+    width: 40px;
+    height: 40px;
+    background: #1e2130;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* ───────────────────────────────────────────────
    공통 페이지 스타일
    ─────────────────────────────────────────────── */
 
