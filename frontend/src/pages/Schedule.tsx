@@ -52,7 +52,7 @@ export default function Schedule() {
 
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [_employees, setEmployees] = useState<Employee[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
