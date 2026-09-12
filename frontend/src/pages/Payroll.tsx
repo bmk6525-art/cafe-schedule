@@ -41,8 +41,10 @@ export default function Payroll() {
         api.get(`/payroll/${year}/${month}`),
         api.get(`/payroll/${year}/${month}/store-summary`),
       ]);
-      setRows(payRes.data);
-      setStoreSums(storeRes.data);
+      const safePayData = Array.isArray(payRes.data) ? payRes.data : [];
+      const safeStoreData = Array.isArray(storeRes.data) ? storeRes.data : [];
+      setRows(safePayData);
+      setStoreSums(safeStoreData);
     } catch (err: any) {
       setError(err.message || '급여 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
       setRows([]);
@@ -52,24 +54,30 @@ export default function Payroll() {
     }
   }
 
-  const hasWorkedEmployees = rows.some(r => r.total_hours > 0);
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeStoreSums = Array.isArray(storeSums) ? storeSums : [];
+
+  const hasWorkedEmployees = safeRows.some(r => (r?.total_hours ?? 0) > 0);
   const displayedRows = useMemo(() => {
     if (!hasWorkedEmployees || includeZeroHours) {
-      return rows;
+      return safeRows;
     }
-    return rows.filter(r => r.total_hours > 0);
-  }, [rows, hasWorkedEmployees, includeZeroHours]);
+    return safeRows.filter(r => (r?.total_hours ?? 0) > 0);
+  }, [safeRows, hasWorkedEmployees, includeZeroHours]);
 
-  const activeStaffCount = rows.filter(r => r.total_hours > 0).length;
-  const totalPay = rows.reduce((s, r) => s + r.total_pay, 0);
-  const totalHoliday = rows.reduce((s, r) => s + r.holiday_pay, 0);
+  const activeStaffCount = safeRows.filter(r => (r?.total_hours ?? 0) > 0).length;
+  const totalPay = safeRows.reduce((s, r) => s + (r?.total_pay ?? 0), 0);
+  const totalHoliday = safeRows.reduce((s, r) => s + (r?.holiday_pay ?? 0), 0);
 
   // 주차별로 일별 상세를 그룹핑
-  function groupByWeek(daily: DailyDetail[], weekly: WeekDetail[]) {
+  function groupByWeek(daily?: DailyDetail[], weekly?: WeekDetail[]) {
+    if (!daily || !weekly) return [];
     const groups: { week: WeekDetail; days: DailyDetail[] }[] = [];
     for (const w of weekly) {
       const days = daily.filter(d => {
-        const day = Number(d.date.split('-')[2]);
+        const parts = d?.date?.split('-');
+        if (!parts || parts.length < 3) return false;
+        const day = Number(parts[2]);
         return Math.ceil(day / 7) === w.week_num;
       });
       groups.push({ week: w, days });
@@ -137,7 +145,16 @@ export default function Payroll() {
           <p className="pay-notice">⚠️ 자동 계산 결과이며 실제 급여 지급 전 관리자 확인이 필요합니다.</p>
 
           {loading ? <p className="emp-empty">불러오는 중...</p> : displayedRows.length === 0 ? (
-            <p className="emp-empty">급여 데이터가 없습니다. 스케줄이 생성되어 있어야 합니다.</p>
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: '#6b7280' }}>
+              <p style={{ fontSize: '32px', margin: '0 0 8px' }}>💰</p>
+              <p style={{ margin: '0 0 6px', fontWeight: 600, color: '#374151', fontSize: '15px' }}>
+                {year}년 {month}월 급여 데이터가 없습니다.
+              </p>
+              <p style={{ fontSize: '13px', margin: 0, lineHeight: 1.6, color: '#8b8fa8' }}>
+                상단 메뉴의 <strong>[스케줄]</strong> 탭에서 해당 월의 스케줄을 먼저 생성했는지 확인해주세요.<br/>
+                (급여 관리는 시급제 파트타이머 대상이며, 정규직 직원은 별도 월급제로 관리됩니다)
+              </p>
+            </div>
           ) : (
             <table className="emp-table">
               <thead>
@@ -148,7 +165,7 @@ export default function Payroll() {
               </thead>
               <tbody>
                 {displayedRows.map((r) => {
-                  const storeNames = [...new Set(r.daily_details.map(d => d.store_name).filter(Boolean))];
+                  const storeNames = [...new Set((r.daily_details || []).map(d => d?.store_name).filter(Boolean))];
                   return (
                     <tr key={r.employee_id} className={selected?.employee_id===r.employee_id?'pay-row--selected':''}>
                       <td className="emp-name">{r.employee_name}</td>
@@ -161,15 +178,15 @@ export default function Payroll() {
                           <span className="pay-store-tag" style={{ color: '#9ca3af' }}>-</span>
                         )}
                       </td>
-                      <td>{r.hourly_wage.toLocaleString()}원</td>
-                      <td>{r.total_hours}시간</td>
-                      <td>{r.base_pay.toLocaleString()}원</td>
+                      <td>{(r.hourly_wage ?? 0).toLocaleString()}원</td>
+                      <td>{r.total_hours ?? 0}시간</td>
+                      <td>{(r.base_pay ?? 0).toLocaleString()}원</td>
                       <td>
-                        {r.holiday_pay > 0
-                          ? <span className="pay-holiday">{r.holiday_pay.toLocaleString()}원</span>
+                        {(r.holiday_pay ?? 0) > 0
+                          ? <span className="pay-holiday">{(r.holiday_pay ?? 0).toLocaleString()}원</span>
                           : '-'}
                       </td>
-                      <td className="pay-total">{r.total_pay.toLocaleString()}원</td>
+                      <td className="pay-total">{(r.total_pay ?? 0).toLocaleString()}원</td>
                       <td>
                         <button className="btn btn--ghost btn--sm"
                           onClick={() => setSelected(selected?.employee_id===r.employee_id ? null : r)}>
@@ -188,7 +205,7 @@ export default function Payroll() {
             <div className="pay-detail">
               <div className="pay-detail-header">
                 <span className="pay-detail-name">{selected.employee_name}</span>
-                <span className="pay-detail-wage">시급 {selected.hourly_wage.toLocaleString()}원</span>
+                <span className="pay-detail-wage">시급 {(selected.hourly_wage ?? 0).toLocaleString()}원</span>
               </div>
 
               {groupByWeek(selected.daily_details, selected.weekly_details).map(({ week, days }) => (
@@ -197,11 +214,11 @@ export default function Payroll() {
                     <span>{week.week_num}주차</span>
                     <span>{week.total_hours}시간</span>
                     {week.is_holiday_pay_eligible && (
-                      <span className="pay-holiday-badge">주휴 +{week.holiday_pay_amount.toLocaleString()}원</span>
+                      <span className="pay-holiday-badge">주휴 +{(week.holiday_pay_amount ?? 0).toLocaleString()}원</span>
                     )}
                   </div>
                   {days.map((d, i) => {
-                    const dayPay = Math.round(d.hours * selected.hourly_wage);
+                    const dayPay = Math.round(d.hours * (selected.hourly_wage ?? 0));
                     return (
                       <div key={i} className="pay-day-row">
                         <span className="pay-day-date">{d.date.slice(5).replace('-','/')}</span>
@@ -220,21 +237,21 @@ export default function Payroll() {
               <div className="pay-detail-total">
                 <div className="pay-detail-total-row">
                   <span>총 근무시간</span>
-                  <strong>{selected.total_hours}시간</strong>
+                  <strong>{selected.total_hours ?? 0}시간</strong>
                 </div>
                 <div className="pay-detail-total-row">
                   <span>기본급</span>
-                  <strong>{selected.base_pay.toLocaleString()}원</strong>
+                  <strong>{(selected.base_pay ?? 0).toLocaleString()}원</strong>
                 </div>
-                {selected.holiday_pay > 0 && (
+                {(selected.holiday_pay ?? 0) > 0 && (
                   <div className="pay-detail-total-row">
                     <span>주휴수당</span>
-                    <strong className="pay-holiday">+{selected.holiday_pay.toLocaleString()}원</strong>
+                    <strong className="pay-holiday">+{(selected.holiday_pay ?? 0).toLocaleString()}원</strong>
                   </div>
                 )}
                 <div className="pay-detail-total-row pay-detail-total-row--final">
                   <span>월 급여 합계</span>
-                  <strong>{selected.total_pay.toLocaleString()}원</strong>
+                  <strong>{(selected.total_pay ?? 0).toLocaleString()}원</strong>
                 </div>
               </div>
             </div>
@@ -244,16 +261,22 @@ export default function Payroll() {
         {/* 매장별 인건비 */}
         <div className="card pay-store-wrap">
           <h3 className="card-title">매장별 인건비</h3>
-          {storeSums.map((s) => (
-            <div key={s.store_id} className="pay-store-row">
-              <span className="pay-store-name">{s.store_name}</span>
-              <span className="pay-store-amount">{s.total_cost.toLocaleString()}원</span>
-            </div>
-          ))}
-          <div className="pay-store-row pay-store-total">
-            <span>합계</span>
-            <span>{storeSums.reduce((a,s)=>a+s.total_cost,0).toLocaleString()}원</span>
-          </div>
+          {safeStoreSums.length === 0 ? (
+            <p className="emp-empty" style={{ padding: '16px 0' }}>매장 인건비 내역이 없습니다.</p>
+          ) : (
+            <>
+              {safeStoreSums.map((s) => (
+                <div key={s.store_id} className="pay-store-row">
+                  <span className="pay-store-name">{s.store_name}</span>
+                  <span className="pay-store-amount">{(s.total_cost ?? 0).toLocaleString()}원</span>
+                </div>
+              ))}
+              <div className="pay-store-row pay-store-total">
+                <span>합계</span>
+                <span>{safeStoreSums.reduce((a,s)=>a+(s?.total_cost ?? 0),0).toLocaleString()}원</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

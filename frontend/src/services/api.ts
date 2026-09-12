@@ -11,11 +11,18 @@ export const api = axios.create({
 
 // 에러 메시지를 사용자 친화적으로 변환
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Vercel 등에서 API 프록시 설정이 안 되어 index.html이 200으로 반환되는 현상 방어
+    if (typeof response.data === 'string' && response.data.trim().toLowerCase().startsWith('<!doctype html')) {
+      return Promise.reject(new Error('백엔드 API 서버에 연결할 수 없습니다. (VITE_API_URL 설정을 확인해주세요)'));
+    }
+    return response;
+  },
   (error) => {
     const message =
       error.response?.data?.detail ||
       error.response?.data?.message ||
+      error.message ||
       '서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
     return Promise.reject(new Error(message));
   }
