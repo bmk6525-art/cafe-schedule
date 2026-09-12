@@ -94,3 +94,15 @@
   .pay-content { grid-template-columns:1fr; }
   .pay-summary-grid { grid-template-columns:1fr 1fr; }
 }
+
+@media (max-width:768px) {
+  .pay-header { flex-direction:column; gap:10px; align-items:flex-start; }
+
+  .pay-summary-grid { grid-template-columns:1fr; gap:10px; }
+
+  .pay-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+  .pay-day-row { font-size:12px; gap:6px; }
+  .pay-day-time { min-width:80px; }
+  .pay-day-hours { min-width:40px; }
+}

@@ -124,6 +124,10 @@
    ─────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
+  .page-title { font-size: 18px; }
+  .page-subtitle { font-size: 13px; }
+  .card { padding: 16px; }
+
   .sidebar {
     transform: translateX(-220px);
     transition: transform 0.25s ease;

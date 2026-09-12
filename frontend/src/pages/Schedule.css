@@ -200,3 +200,35 @@
 .coming-soon-icon { font-size:48px; }
 .coming-soon-title { font-size:18px; font-weight:600; color:#4a4d6a; margin:0; }
 .coming-soon-desc { font-size:14px; margin:0; text-align:center; max-width:400px; line-height:1.7; }
+
+@media (max-width: 768px) {
+  /* 헤더 */
+  .sch-header { flex-direction:column; gap:10px; align-items:flex-start; }
+  .sch-header-actions { width:100%; flex-wrap:wrap; }
+
+  /* 주간 탭 */
+  .week-tabs { flex-wrap:wrap; gap:4px; }
+  .week-tab { padding:6px 10px; font-size:12px; flex:1; text-align:center; min-width:0; }
+
+  /* 주간 카드 뷰 */
+  .sch-grid { grid-template-columns:repeat(2, 1fr); gap:8px; }
+
+  /* 달력 셀 - 좁은 화면에 맞게 */
+  .cal-cell { min-height:60px; padding:4px; }
+  .cal-cell--empty { min-height:60px; }
+  .cal-day-num { font-size:11px; width:20px; height:20px; }
+  .cal-header-cell { font-size:10px; padding:6px 2px; }
+  .cal-chip { font-size:8px; padding:2px 3px; }
+  .cal-chip-time { font-size:7px; }
+
+  /* 날짜 상세 패널 */
+  .cal-detail-panel { padding:14px; }
+  .cal-detail-list { flex-direction:column; }
+  .cal-detail-list .sch-card { min-width:0; }
+
+  /* 뷰 토글 */
+  .view-toggle-btn { padding:6px 10px; font-size:12px; }
+
+  /* 버튼 */
+  .btn { padding:8px 14px; font-size:13px; }
+}

@@ -5,6 +5,37 @@
   margin-bottom: 24px;
 }
 
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .stat-icon {
+    font-size: 24px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .phase-number {
+    min-width: 52px;
+    font-size: 10px;
+  }
+
+  .phase-name {
+    font-size: 13px;
+  }
+}
+
 .stat-card {
   background: #ffffff;
   border-radius: 12px;
