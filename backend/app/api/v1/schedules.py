@@ -27,25 +27,28 @@ def get_schedules(
     start = date(year, month, 1)
     end = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
 
-    q = db.query(Schedule).filter(
-        Schedule.work_date >= start,
-        Schedule.work_date < end,
-        Schedule.is_cancelled == False,
+    q = (
+        db.query(Schedule, Employee, Store)
+        .outerjoin(Employee, Schedule.employee_id == Employee.id)
+        .outerjoin(Store, Schedule.store_id == Store.id)
+        .filter(
+            Schedule.work_date >= start,
+            Schedule.work_date < end,
+            Schedule.is_cancelled == False,
+        )
     )
     if store_id:
         q = q.filter(Schedule.store_id == store_id)
     if employee_id:
         q = q.filter(Schedule.employee_id == employee_id)
     if employee_type:
-        q = q.join(Employee).filter(Employee.employee_type == employee_type)
+        q = q.filter(Employee.employee_type == employee_type)
 
-    schedules = q.order_by(Schedule.work_date, Schedule.start_time).all()
+    rows = q.order_by(Schedule.work_date, Schedule.start_time).all()
 
     # 직원·매장 정보 포함해서 응답
     result = []
-    for s in schedules:
-        emp = db.query(Employee).filter_by(id=s.employee_id).first()
-        store = db.query(Store).filter_by(id=s.store_id).first()
+    for s, emp, store in rows:
         result.append({
             'id': s.id,
             'employee_id': s.employee_id,

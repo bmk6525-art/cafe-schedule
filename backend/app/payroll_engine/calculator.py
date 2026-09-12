@@ -67,13 +67,16 @@ def calculate_monthly_payroll(year: int, month: int, employee_id: int, db: Sessi
         weekly_hours[week_num] += hours
         total_minutes += paid_min
 
+        store = db.query(Store).filter_by(id=s.store_id).first() if s.store_id else None
+        store_name = store.name if store else ''
+
         daily_details.append({
             'date': s.work_date.isoformat(),
             'day_of_week': _DOW_KO[s.work_date.weekday()],
             'start_time': start[:5],
             'end_time': end[:5],
             'hours': hours,
-            'store_name': (db.query(Store).filter_by(id=s.store_id).first().name if s.store_id else ''),
+            'store_name': store_name,
             'is_actual': bool(actual and actual.actual_start),
         })
 

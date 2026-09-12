@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import './Payroll.css';
 
@@ -27,22 +27,40 @@ export default function Payroll() {
   const [storeSums, setStoreSums] = useState<StoreSum[]>([]);
   const [selected, setSelected] = useState<PayrollRow | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [includeZeroHours, setIncludeZeroHours] = useState(false);
 
   useEffect(() => { loadPayroll(); }, [year, month]);
 
   async function loadPayroll() {
     setLoading(true);
+    setError(null);
     setSelected(null);
     try {
       const [payRes, storeRes] = await Promise.all([
         api.get(`/payroll/${year}/${month}`),
         api.get(`/payroll/${year}/${month}/store-summary`),
       ]);
-      setRows(payRes.data.filter((r: PayrollRow) => r.total_hours > 0));
+      setRows(payRes.data);
       setStoreSums(storeRes.data);
-    } finally { setLoading(false); }
+    } catch (err: any) {
+      setError(err.message || '급여 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      setRows([]);
+      setStoreSums([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
+  const hasWorkedEmployees = rows.some(r => r.total_hours > 0);
+  const displayedRows = useMemo(() => {
+    if (!hasWorkedEmployees || includeZeroHours) {
+      return rows;
+    }
+    return rows.filter(r => r.total_hours > 0);
+  }, [rows, hasWorkedEmployees, includeZeroHours]);
+
+  const activeStaffCount = rows.filter(r => r.total_hours > 0).length;
   const totalPay = rows.reduce((s, r) => s + r.total_pay, 0);
   const totalHoliday = rows.reduce((s, r) => s + r.holiday_pay, 0);
 
@@ -76,6 +94,12 @@ export default function Payroll() {
         </div>
       </div>
 
+      {error && (
+        <div className="card" style={{ backgroundColor: '#fff2f0', borderColor: '#ffccc7', color: '#cf1322', padding: '12px 16px', marginBottom: 16 }}>
+          <strong>⚠️ 급여 조회 실패:</strong> {error}
+        </div>
+      )}
+
       {/* 요약 카드 */}
       <div className="pay-summary-grid">
         <div className="pay-summary-card">
@@ -88,16 +112,31 @@ export default function Payroll() {
         </div>
         <div className="pay-summary-card">
           <p className="pay-sum-label">대상 인원</p>
-          <p className="pay-sum-value">{rows.length}명</p>
+          <p className="pay-sum-value">
+            {activeStaffCount}명
+            {rows.length > 0 && <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#8b8fa8', marginLeft: '4px' }}>(전체 {rows.length}명)</span>}
+          </p>
         </div>
       </div>
 
       <div className="pay-content">
         <div className="card pay-table-wrap">
-          <h3 className="card-title">개인별 급여</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+            <h3 className="card-title" style={{ margin: 0 }}>개인별 급여</h3>
+            {hasWorkedEmployees && (
+              <label style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={includeZeroHours}
+                  onChange={e => setIncludeZeroHours(e.target.checked)}
+                />
+                근무시간 0인 직원 포함
+              </label>
+            )}
+          </div>
           <p className="pay-notice">⚠️ 자동 계산 결과이며 실제 급여 지급 전 관리자 확인이 필요합니다.</p>
 
-          {loading ? <p className="emp-empty">불러오는 중...</p> : rows.length === 0 ? (
+          {loading ? <p className="emp-empty">불러오는 중...</p> : displayedRows.length === 0 ? (
             <p className="emp-empty">급여 데이터가 없습니다. 스케줄이 생성되어 있어야 합니다.</p>
           ) : (
             <table className="emp-table">
@@ -108,14 +147,19 @@ export default function Payroll() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {displayedRows.map((r) => {
+                  const storeNames = [...new Set(r.daily_details.map(d => d.store_name).filter(Boolean))];
                   return (
                     <tr key={r.employee_id} className={selected?.employee_id===r.employee_id?'pay-row--selected':''}>
                       <td className="emp-name">{r.employee_name}</td>
                       <td className="pay-store-tags">
-                        {[...new Set(r.daily_details.map(d => d.store_name))].map(s => (
-                          <span key={s} className="pay-store-tag">{s}</span>
-                        ))}
+                        {storeNames.length > 0 ? (
+                          storeNames.map(s => (
+                            <span key={s} className="pay-store-tag">{s}</span>
+                          ))
+                        ) : (
+                          <span className="pay-store-tag" style={{ color: '#9ca3af' }}>-</span>
+                        )}
                       </td>
                       <td>{r.hourly_wage.toLocaleString()}원</td>
                       <td>{r.total_hours}시간</td>

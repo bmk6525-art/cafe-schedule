@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { scheduleApi, storeApi, employeeApi } from '../services/api';
-import type { Store, Employee } from '../types';
+import { scheduleApi, storeApi } from '../services/api';
+import type { Store } from '../types';
 import ScheduleEditModal from '../components/schedule/ScheduleEditModal';
 import './Schedule.css';
 
@@ -52,7 +52,6 @@ export default function Schedule() {
 
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
-  const [_employees, setEmployees] = useState<Employee[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -68,14 +67,12 @@ export default function Schedule() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [schRes, storeRes, empRes] = await Promise.all([
+      const [schRes, storeRes] = await Promise.all([
         scheduleApi.getAll({ year, month }),
         storeApi.getAll(),
-        employeeApi.getAll(),
       ]);
       setSchedules(schRes.data);
       setStores(storeRes.data);
-      setEmployees(empRes.data);
     } finally { setLoading(false); }
   }
 
@@ -155,6 +152,9 @@ export default function Schedule() {
     for (const s of filteredWeek) {
       if (map[s.work_date]) map[s.work_date].push(s);
     }
+    for (const d of weekDays) {
+      map[d.date].sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
     return map;
   }, [filteredWeek, weekDays]);
 
@@ -166,6 +166,9 @@ export default function Schedule() {
     for (const s of filtered) {
       if (!map[s.work_date]) map[s.work_date] = [];
       map[s.work_date].push(s);
+    }
+    for (const dt in map) {
+      map[dt].sort((a, b) => a.start_time.localeCompare(b.start_time));
     }
     return map;
   }, [filtered]);
@@ -339,9 +342,7 @@ export default function Schedule() {
                 <p className="emp-empty">이 날 스케줄이 없습니다.</p>
               ) : (
                 <div className="cal-detail-list">
-                  {calDetailSchedules
-                    .sort((a,b) => a.start_time.localeCompare(b.start_time))
-                    .map(s => (
+                  {calDetailSchedules.map(s => (
                     <div key={s.id} className={`sch-card ${s.employee_type==='REGULAR'?'sch-card--regular':'sch-card--part'} ${s.status==='CONFIRMED'?'sch-card--confirmed':''}`}>
                       <div className="sch-card-name">{s.employee_name}</div>
                       <div className="sch-card-time">{s.start_time}~{s.end_time}</div>
@@ -381,9 +382,7 @@ export default function Schedule() {
                   <div className="sch-day-header">{label}</div>
                   <div className="sch-day-body">
                     {daySchedules.length === 0 && <p className="sch-empty-day">-</p>}
-                    {daySchedules
-                      .sort((a,b) => a.start_time.localeCompare(b.start_time))
-                      .map((s) => (
+                    {daySchedules.map((s) => (
                       <div key={s.id}
                         className={`sch-card ${s.status==='LOCKED'?'sch-card--locked':s.status==='CONFIRMED'?'sch-card--confirmed':''} ${s.employee_type==='REGULAR'?'sch-card--regular':'sch-card--part'}`}>
                         <div className="sch-card-name">{s.employee_name}</div>

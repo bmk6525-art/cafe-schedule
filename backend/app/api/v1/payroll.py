@@ -90,10 +90,13 @@ def get_store_payroll_summary(year: int, month: int, db: Session = Depends(get_d
             if actual and actual.is_absent:
                 continue
             if actual and actual.actual_start and actual.actual_end:
-                mins = max(0, _t(actual.actual_end) - _t(actual.actual_start) - actual.actual_break_minutes)
+                break_m = actual.actual_break_minutes or 0
+                mins = max(0, _t(actual.actual_end) - _t(actual.actual_start) - break_m)
             else:
-                mins = max(0, _t(s.end_time) - _t(s.start_time) - s.break_minutes)
-            total_cost += (mins / 60) * emp.hourly_wage
+                break_m = s.break_minutes or 0
+                mins = max(0, _t(s.end_time) - _t(s.start_time) - break_m)
+            wage = emp.hourly_wage or 0
+            total_cost += (mins / 60) * wage
 
         result.append({'store_id': store.id, 'store_name': store.name, 'total_cost': round(total_cost)})
     return result
