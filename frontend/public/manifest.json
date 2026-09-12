@@ -1,0 +1,17 @@
+{
+  "name": "카페 스케줄",
+  "short_name": "카페 스케줄",
+  "description": "카페 근무 스케줄 관리 시스템",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e2130",
+  "theme_color": "#1e2130",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
