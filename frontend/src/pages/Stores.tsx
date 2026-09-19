@@ -18,6 +18,8 @@ export default function Stores() {
   const [deactivateTarget, setDeactivateTarget] = useState<Store | null>(null);
   const [deactivating, setDeactivating] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<Store | null>(null);
+  const [hardDeleting, setHardDeleting] = useState(false);
 
   useEffect(() => {
     loadStores();
@@ -53,6 +55,18 @@ export default function Stores() {
       await loadStores();
     } finally {
       setActivating(false);
+    }
+  }
+
+  async function handleHardDelete() {
+    if (!hardDeleteTarget) return;
+    setHardDeleting(true);
+    try {
+      await storeApi.hardDelete(hardDeleteTarget.id);
+      setHardDeleteTarget(null);
+      await loadStores();
+    } finally {
+      setHardDeleting(false);
     }
   }
 
@@ -151,9 +165,14 @@ export default function Stores() {
                     비활성화
                   </button>
                 ) : (
-                  <button className="btn btn--success btn--sm" onClick={() => handleActivate(store)} disabled={activating}>
-                    활성화
-                  </button>
+                  <>
+                    <button className="btn btn--success btn--sm" onClick={() => handleActivate(store)} disabled={activating}>
+                      활성화
+                    </button>
+                    <button className="btn btn--delete btn--sm" onClick={() => setHardDeleteTarget(store)}>
+                      영구삭제
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -192,6 +211,25 @@ export default function Stores() {
               <button className="btn btn--secondary" onClick={() => setDeactivateTarget(null)}>취소</button>
               <button className="btn btn--danger" onClick={handleDeactivate} disabled={deactivating}>
                 {deactivating ? '처리 중...' : '비활성화'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 영구 삭제 확인 */}
+      {hardDeleteTarget && (
+        <div className="modal-backdrop" onClick={() => setHardDeleteTarget(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="confirm-title" style={{color:'#c0392b'}}>⚠️ 매장 영구 삭제</h3>
+            <p className="confirm-desc">
+              <strong>{hardDeleteTarget.name}</strong>의 모든 데이터를 영구적으로 삭제합니다.<br />
+              필요인원 설정, 스케줄이 모두 삭제되며 <strong>복구할 수 없습니다.</strong>
+            </p>
+            <div className="confirm-actions">
+              <button className="btn btn--secondary" onClick={() => setHardDeleteTarget(null)}>취소</button>
+              <button className="btn btn--delete" onClick={handleHardDelete} disabled={hardDeleting}>
+                {hardDeleting ? '삭제 중...' : '영구 삭제'}
               </button>
             </div>
           </div>

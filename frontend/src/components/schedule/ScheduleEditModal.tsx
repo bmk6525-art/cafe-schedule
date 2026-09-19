@@ -14,31 +14,33 @@ interface EmployeeOption {
 }
 
 interface Props {
-  schedule: ScheduleEntry;
+  schedule: ScheduleEntry | null;  // null = 추가 모드
   stores: Store[];
   employees?: EmployeeOption[];
+  defaultDate?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
 const REASONS = ['개인사정','결근','대체근무','매장변경','시간변경','관리자수정','기타'];
 
-export default function ScheduleEditModal({ schedule, stores, employees = [], onClose, onSaved }: Props) {
+export default function ScheduleEditModal({ schedule, stores, employees = [], defaultDate, onClose, onSaved }: Props) {
+  const isCreate = schedule === null;
+  const today = new Date().toISOString().slice(0, 10);
+
   const [form, setForm] = useState({
-    employee_id: schedule.employee_id,
-    work_date: schedule.work_date,
-    start_time: schedule.start_time,
-    end_time: schedule.end_time,
-    store_id: schedule.store_id,
-    break_minutes: schedule.break_minutes,
-    status: schedule.status,
+    employee_id: schedule?.employee_id ?? (employees[0]?.id ?? 0),
+    work_date: schedule?.work_date ?? (defaultDate ?? today),
+    start_time: schedule?.start_time ?? '09:00',
+    end_time: schedule?.end_time ?? '18:00',
+    store_id: schedule?.store_id ?? (stores[0]?.id ?? 0),
+    break_minutes: schedule?.break_minutes ?? 0,
+    status: schedule?.status ?? 'DRAFT',
     change_reason: '관리자수정',
-    memo: schedule.memo ?? '',
+    memo: schedule?.memo ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  // 드래그 버그 수정
   const mouseDownRef = useRef<EventTarget | null>(null);
 
   function handle(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
@@ -58,9 +60,25 @@ export default function ScheduleEditModal({ schedule, stores, employees = [], on
       setError('종료 시간은 시작 시간보다 늦어야 합니다.');
       return;
     }
+    if (!form.employee_id || !form.store_id) {
+      setError('직원과 매장을 선택해주세요.');
+      return;
+    }
     setSaving(true);
     try {
-      await scheduleApi.update(schedule.id, form);
+      if (isCreate) {
+        await scheduleApi.create({
+          employee_id: form.employee_id,
+          store_id: form.store_id,
+          work_date: form.work_date,
+          start_time: form.start_time,
+          end_time: form.end_time,
+          break_minutes: form.break_minutes,
+          memo: form.memo || null,
+        });
+      } else {
+        await scheduleApi.update(schedule!.id, form);
+      }
       onSaved();
     } catch (err: any) {
       setError(err.message);
@@ -86,13 +104,13 @@ export default function ScheduleEditModal({ schedule, stores, employees = [], on
     >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">스케줄 수정</h2>
+          <h2 className="modal-title">{isCreate ? '스케줄 추가' : '스케줄 수정'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <form onSubmit={handleSubmit} className="modal-body">
           <div className="form-section">
             {/* 직원 선택 */}
-            {employees.length > 0 && (
+            {(isCreate || employees.length > 0) ? (
               <div className="form-group">
                 <label>직원</label>
                 <select name="employee_id" value={form.employee_id} onChange={handle}>
@@ -103,14 +121,12 @@ export default function ScheduleEditModal({ schedule, stores, employees = [], on
                   ))}
                 </select>
               </div>
-            )}
-            {employees.length === 0 && (
+            ) : (
               <p style={{fontSize:14,color:'#8b8fa8',marginBottom:12}}>
-                직원: {schedule.employee_name}
+                직원: {schedule?.employee_name}
               </p>
             )}
 
-            {/* 근무일 */}
             <div className="form-row">
               <div className="form-group">
                 <label>근무일</label>
@@ -140,25 +156,31 @@ export default function ScheduleEditModal({ schedule, stores, employees = [], on
                 <label>휴게시간 (분)</label>
                 <input type="number" name="break_minutes" value={form.break_minutes} onChange={handle} min={0} />
               </div>
-              <div className="form-group">
-                <label>상태</label>
-                <select name="status" value={form.status} onChange={handle}>
-                  <option value="DRAFT">작성 중</option>
-                  <option value="CONFIRMED">확정</option>
-                  <option value="LOCKED">잠금</option>
-                </select>
-              </div>
+              {!isCreate ? (
+                <div className="form-group">
+                  <label>상태</label>
+                  <select name="status" value={form.status} onChange={handle}>
+                    <option value="DRAFT">작성 중</option>
+                    <option value="CONFIRMED">확정</option>
+                    <option value="LOCKED">잠금</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="form-group" />
+              )}
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label>변경 사유</label>
-                <select name="change_reason" value={form.change_reason} onChange={handle}>
-                  {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
+            {!isCreate && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label>변경 사유</label>
+                  <select name="change_reason" value={form.change_reason} onChange={handle}>
+                    {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="form-group" />
               </div>
-              <div className="form-group" />
-            </div>
+            )}
 
             <div className="form-group">
               <label>메모</label>
@@ -175,7 +197,7 @@ export default function ScheduleEditModal({ schedule, stores, employees = [], on
           <div className="modal-footer">
             <button type="button" className="btn btn--secondary" onClick={onClose}>취소</button>
             <button type="submit" className="btn btn--primary" disabled={saving}>
-              {saving ? '저장 중...' : '수정 완료'}
+              {saving ? (isCreate ? '추가 중...' : '저장 중...') : (isCreate ? '스케줄 추가' : '수정 완료')}
             </button>
           </div>
         </form>

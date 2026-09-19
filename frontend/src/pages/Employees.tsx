@@ -29,6 +29,8 @@ export default function Employees() {
   const [deactivateTarget, setDeactivateTarget] = useState<Employee | null>(null);
   const [deactivating, setDeactivating] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [hardDeleteTarget, setHardDeleteTarget] = useState<Employee | null>(null);
+  const [hardDeleting, setHardDeleting] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -81,6 +83,18 @@ export default function Employees() {
       await loadAll();
     } finally {
       setActivating(false);
+    }
+  }
+
+  async function handleHardDelete() {
+    if (!hardDeleteTarget) return;
+    setHardDeleting(true);
+    try {
+      await employeeApi.hardDelete(hardDeleteTarget.id);
+      setHardDeleteTarget(null);
+      await loadAll();
+    } finally {
+      setHardDeleting(false);
     }
   }
 
@@ -205,9 +219,14 @@ export default function Employees() {
                         비활성화
                       </button>
                     ) : (
-                      <button className="btn btn--success btn--sm" onClick={() => handleActivate(emp)} disabled={activating}>
-                        활성화
-                      </button>
+                      <>
+                        <button className="btn btn--success btn--sm" onClick={() => handleActivate(emp)} disabled={activating}>
+                          활성화
+                        </button>
+                        <button className="btn btn--delete btn--sm" onClick={() => setHardDeleteTarget(emp)}>
+                          영구삭제
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -259,6 +278,25 @@ export default function Employees() {
               <button className="btn btn--secondary" onClick={() => setDeactivateTarget(null)}>취소</button>
               <button className="btn btn--danger" onClick={handleDeactivate} disabled={deactivating}>
                 {deactivating ? '처리 중...' : '비활성화'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 영구 삭제 확인 다이얼로그 */}
+      {hardDeleteTarget && (
+        <div className="modal-backdrop" onClick={() => setHardDeleteTarget(null)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="confirm-title" style={{color:'#c0392b'}}>⚠️ 직원 영구 삭제</h3>
+            <p className="confirm-desc">
+              <strong>{hardDeleteTarget.name}</strong>의 모든 데이터를 영구적으로 삭제합니다.<br />
+              스케줄, 급여, 근무이력이 모두 삭제되며 <strong>복구할 수 없습니다.</strong>
+            </p>
+            <div className="confirm-actions">
+              <button className="btn btn--secondary" onClick={() => setHardDeleteTarget(null)}>취소</button>
+              <button className="btn btn--delete" onClick={handleHardDelete} disabled={hardDeleting}>
+                {hardDeleting ? '삭제 중...' : '영구 삭제'}
               </button>
             </div>
           </div>

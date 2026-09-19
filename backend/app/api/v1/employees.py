@@ -3,7 +3,10 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.database.database import get_db
-from app.models.models import Employee, EmployeeType
+from app.models.models import (
+    Employee, EmployeeType, EmployeeWorkPattern, MonthlyAvailability,
+    AvailabilityException, Schedule, ActualWork, MonthlyPayroll, WeeklyPayroll, ScheduleHistory,
+)
 from app.schemas.schemas import EmployeeCreate, EmployeeUpdate, EmployeeResponse, MessageResponse
 
 router = APIRouter(prefix="/employees", tags=["직원 관리"])
@@ -97,3 +100,35 @@ def activate_employee(employee_id: int, db: Session = Depends(get_db)):
     employee.is_active = True
     db.commit()
     return {"message": f"'{employee.name}' 직원이 활성화되었습니다.", "success": True}
+
+
+@router.delete("/{employee_id}/permanent", response_model=MessageResponse)
+def hard_delete_employee(employee_id: int, db: Session = Depends(get_db)):
+    """직원 영구 삭제 (모든 관련 데이터 포함)"""
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="직원을 찾을 수 없습니다.")
+
+    name = employee.name
+
+    # 관련 급여 데이터 삭제
+    db.query(WeeklyPayroll).filter(WeeklyPayroll.employee_id == employee_id).delete()
+    db.query(MonthlyPayroll).filter(MonthlyPayroll.employee_id == employee_id).delete()
+
+    # 실제 근무 삭제
+    db.query(ActualWork).filter(ActualWork.employee_id == employee_id).delete()
+
+    # 스케줄 이력 → 스케줄 삭제
+    sch_ids = [s.id for s in db.query(Schedule.id).filter(Schedule.employee_id == employee_id).all()]
+    if sch_ids:
+        db.query(ScheduleHistory).filter(ScheduleHistory.schedule_id.in_(sch_ids)).delete(synchronize_session=False)
+    db.query(Schedule).filter(Schedule.employee_id == employee_id).delete()
+
+    # 불가능시간·패턴 삭제
+    db.query(AvailabilityException).filter(AvailabilityException.employee_id == employee_id).delete()
+    db.query(MonthlyAvailability).filter(MonthlyAvailability.employee_id == employee_id).delete()
+    db.query(EmployeeWorkPattern).filter(EmployeeWorkPattern.employee_id == employee_id).delete()
+
+    db.delete(employee)
+    db.commit()
+    return {"message": f"'{name}' 직원이 영구 삭제되었습니다.", "success": True}

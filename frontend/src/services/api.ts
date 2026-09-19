@@ -37,6 +37,7 @@ export const storeApi = {
   update: (id: number, data: object) => api.put(`/stores/${id}`, data),
   deactivate: (id: number) => api.delete(`/stores/${id}`),
   activate: (id: number) => api.post(`/stores/${id}/activate`),
+  hardDelete: (id: number) => api.delete(`/stores/${id}/permanent`),
 };
 
 // Employee API
@@ -53,12 +54,14 @@ export const employeeApi = {
   update: (id: number, data: object) => api.put(`/employees/${id}`, data),
   deactivate: (id: number) => api.delete(`/employees/${id}`),
   activate: (id: number) => api.post(`/employees/${id}/activate`),
+  hardDelete: (id: number) => api.delete(`/employees/${id}/permanent`),
 };
 
 // Schedule API
 export const scheduleApi = {
   getAll: (params: { year: number; month: number; store_id?: number; employee_id?: number; employee_type?: string }) =>
     api.get('/schedules', { params }),
+  create: (data: object) => api.post('/schedules', data),
   generate: (year: number, month: number) =>
     api.post('/schedules/generate', null, { params: { year, month } }),
   update: (id: number, data: object) => api.put(`/schedules/${id}`, data),

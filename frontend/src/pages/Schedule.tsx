@@ -58,7 +58,8 @@ export default function Schedule() {
   const [generating, setGenerating] = useState(false);
   const [validating, setValidating] = useState(false);
   const [genResult, setGenResult] = useState<{ created: number; warnings: string[] } | null>(null);
-  const [editTarget, setEditTarget] = useState<ScheduleEntry | null>(null);
+  const [editTarget, setEditTarget] = useState<ScheduleEntry | null | 'new'>(null);
+  const [addDefaultDate, setAddDefaultDate] = useState('');
   const [calDetailDate, setCalDetailDate] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const calRef = useRef<HTMLDivElement>(null);
@@ -199,6 +200,9 @@ export default function Schedule() {
           <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="emp-month-select">
             {Array.from({length:12},(_,i)=>i+1).map((m) => <option key={m} value={m}>{m}월</option>)}
           </select>
+          <button className="btn btn--secondary" onClick={() => { setAddDefaultDate(''); setEditTarget('new'); }}>
+            + 스케줄 추가
+          </button>
           <button className="btn btn--primary" onClick={handleGenerate} disabled={generating}>
             {generating ? '생성 중...' : '자동 스케줄 생성'}
           </button>
@@ -342,6 +346,10 @@ export default function Schedule() {
               <div className="cal-detail-header">
                 <strong>{calDetailDate.replace(/-/g, '.')} ({DAY_KO[new Date(calDetailDate).getDay()]})</strong>
                 <span className="cal-detail-count">{calDetailSchedules.length}건</span>
+                <button className="btn btn--primary btn--sm" style={{marginLeft:'auto',marginRight:8}}
+                  onClick={() => { setAddDefaultDate(calDetailDate); setEditTarget('new'); }}>
+                  + 추가
+                </button>
                 <button className="cal-detail-close" onClick={() => setCalDetailDate(null)}>✕</button>
               </div>
               {calDetailSchedules.length === 0 ? (
@@ -415,9 +423,11 @@ export default function Schedule() {
         </>
       )}
 
-      {editTarget && (
+      {editTarget !== null && (
         <ScheduleEditModal
-          schedule={editTarget} stores={stores} employees={employees}
+          schedule={editTarget === 'new' ? null : editTarget}
+          defaultDate={addDefaultDate}
+          stores={stores} employees={employees}
           onClose={() => setEditTarget(null)}
           onSaved={() => { setEditTarget(null); loadAll(); }}
         />

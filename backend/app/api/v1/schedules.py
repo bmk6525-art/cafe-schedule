@@ -67,6 +67,46 @@ def get_schedules(
     return result
 
 
+# ── 수동 추가 ──
+
+@router.post("")
+def create_schedule(data: dict, db: Session = Depends(get_db)):
+    """스케줄 수동 추가"""
+    emp = db.query(Employee).filter_by(id=data.get('employee_id')).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="직원을 찾을 수 없습니다.")
+    store = db.query(Store).filter_by(id=data.get('store_id')).first()
+    if not store:
+        raise HTTPException(status_code=404, detail="매장을 찾을 수 없습니다.")
+    if not data.get('start_time') or not data.get('end_time'):
+        raise HTTPException(status_code=400, detail="시작/종료 시간은 필수입니다.")
+    if data['start_time'] >= data['end_time']:
+        raise HTTPException(status_code=400, detail="종료 시간은 시작 시간보다 늦어야 합니다.")
+
+    work_date = date.fromisoformat(data['work_date']) if isinstance(data.get('work_date'), str) else data.get('work_date')
+    s = Schedule(
+        employee_id=emp.id,
+        store_id=store.id,
+        work_date=work_date,
+        start_time=data['start_time'],
+        end_time=data['end_time'],
+        break_minutes=data.get('break_minutes', 0),
+        status=ScheduleStatus.DRAFT,
+        memo=data.get('memo'),
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return {
+        'id': s.id, 'employee_id': s.employee_id,
+        'employee_name': emp.name, 'employee_type': emp.employee_type.value,
+        'store_id': s.store_id, 'store_name': store.name,
+        'work_date': str(s.work_date), 'start_time': s.start_time,
+        'end_time': s.end_time, 'break_minutes': s.break_minutes,
+        'status': s.status.value, 'is_cancelled': s.is_cancelled, 'memo': s.memo,
+    }
+
+
 # ── 자동 생성 ──
 
 @router.post("/generate", response_model=dict)
