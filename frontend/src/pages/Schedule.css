@@ -173,6 +173,8 @@
 .cal-chip--part { background:#fff3e0; color:#c06000; }
 .cal-chip--confirmed { opacity:0.8; }
 .cal-chip--more { background:#f0f2fa; color:#8b8fa8; flex-direction:row; font-size:10px; }
+.cal-chip--clickable { cursor:pointer; }
+.cal-chip--clickable:hover { filter:brightness(0.92); outline:1.5px solid rgba(0,0,0,0.15); }
 
 /* ── 날짜 상세 패널 ── */
 .cal-detail-panel {

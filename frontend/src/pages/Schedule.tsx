@@ -316,7 +316,10 @@ export default function Schedule() {
                     <div className="cal-chips">
                       {daySchedules.slice(0, 4).map(s => (
                         <div key={s.id}
-                          className={`cal-chip ${s.employee_type==='REGULAR'?'cal-chip--regular':'cal-chip--part'} ${s.status==='CONFIRMED'?'cal-chip--confirmed':''}`}>
+                          className={`cal-chip ${s.employee_type==='REGULAR'?'cal-chip--regular':'cal-chip--part'} ${s.status==='CONFIRMED'?'cal-chip--confirmed':''} ${s.status!=='LOCKED'?'cal-chip--clickable':''}`}
+                          onClick={(e) => { if (s.status !== 'LOCKED') { e.stopPropagation(); setEditTarget(s); } }}
+                          title={s.status !== 'LOCKED' ? '클릭하여 수정' : '잠금된 스케줄'}
+                        >
                           <span className="cal-chip-top">{s.employee_name} <em>{s.store_name}</em></span>
                           <span className="cal-chip-time">{s.start_time.slice(0,5)}~{s.end_time.slice(0,5)}</span>
                         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Store } from '../../types';
 import { storeApi } from '../../services/api';
 import '../../components/employees/EmployeeModal.css';
@@ -21,6 +21,7 @@ export default function StoreModal({ store, onClose, onSaved }: Props) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const mouseDownRef = useRef<EventTarget | null>(null);
 
   useEffect(() => {
     if (store) {
@@ -72,7 +73,14 @@ export default function StoreModal({ store, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => { mouseDownRef.current = e.target; }}
+      onClick={(e) => {
+        if (mouseDownRef.current === e.currentTarget) onClose();
+        mouseDownRef.current = null;
+      }}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">{isEdit ? '매장 정보 수정' : '매장 추가'}</h2>
