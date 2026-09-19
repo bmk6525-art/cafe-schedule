@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import html2canvas from 'html2canvas';
-import { scheduleApi, storeApi } from '../services/api';
+import { scheduleApi, storeApi, employeeApi } from '../services/api';
 import type { Store } from '../types';
 import ScheduleEditModal from '../components/schedule/ScheduleEditModal';
 import './Schedule.css';
@@ -52,6 +52,7 @@ export default function Schedule() {
 
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
+  const [employees, setEmployees] = useState<{id:number;name:string;employee_type:string}[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -67,12 +68,14 @@ export default function Schedule() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [schRes, storeRes] = await Promise.all([
+      const [schRes, storeRes, empRes] = await Promise.all([
         scheduleApi.getAll({ year, month }),
         storeApi.getAll(),
+        employeeApi.getAll(),
       ]);
       setSchedules(schRes.data);
       setStores(storeRes.data);
+      setEmployees(empRes.data);
     } finally { setLoading(false); }
   }
 
@@ -411,7 +414,7 @@ export default function Schedule() {
 
       {editTarget && (
         <ScheduleEditModal
-          schedule={editTarget} stores={stores}
+          schedule={editTarget} stores={stores} employees={employees}
           onClose={() => setEditTarget(null)}
           onSaved={() => { setEditTarget(null); loadAll(); }}
         />

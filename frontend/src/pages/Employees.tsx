@@ -25,9 +25,10 @@ export default function Employees() {
   const [patternTarget, setPatternTarget] = useState<Employee | null>(null);
   const [avTarget, setAvTarget] = useState<Employee | null>(null);
 
-  // 비활성화 확인 상태
+  // 비활성화 / 활성화 확인 상태
   const [deactivateTarget, setDeactivateTarget] = useState<Employee | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -69,6 +70,17 @@ export default function Employees() {
       await loadAll();
     } finally {
       setDeactivating(false);
+    }
+  }
+
+  async function handleActivate(emp: Employee) {
+    if (!confirm(`'${emp.name}'을(를) 다시 활성화하시겠습니까?`)) return;
+    setActivating(true);
+    try {
+      await employeeApi.activate(emp.id);
+      await loadAll();
+    } finally {
+      setActivating(false);
     }
   }
 
@@ -188,9 +200,13 @@ export default function Employees() {
                         불가능시간
                       </button>
                     )}
-                    {emp.is_active && (
+                    {emp.is_active ? (
                       <button className="btn btn--danger btn--sm" onClick={() => setDeactivateTarget(emp)}>
                         비활성화
+                      </button>
+                    ) : (
+                      <button className="btn btn--success btn--sm" onClick={() => handleActivate(emp)} disabled={activating}>
+                        활성화
                       </button>
                     )}
                   </td>

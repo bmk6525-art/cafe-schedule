@@ -75,3 +75,17 @@ def deactivate_store(store_id: int, db: Session = Depends(get_db)):
     store.is_active = False
     db.commit()
     return {"message": f"'{store.name}' 매장이 비활성화되었습니다.", "success": True}
+
+
+@router.post("/{store_id}/activate", response_model=MessageResponse)
+def activate_store(store_id: int, db: Session = Depends(get_db)):
+    """매장 활성화"""
+    store = db.query(Store).filter(Store.id == store_id).first()
+    if not store:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="매장을 찾을 수 없습니다."
+        )
+    store.is_active = True
+    db.commit()
+    return {"message": f"'{store.name}' 매장이 활성화되었습니다.", "success": True}

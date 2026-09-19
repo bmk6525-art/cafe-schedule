@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { api } from '../services/api';
+import { payrollApi } from '../services/api';
 import './Payroll.css';
 
 interface DailyDetail {
@@ -14,7 +14,7 @@ interface WeekDetail {
 interface PayrollRow {
   employee_id: number; employee_name: string; year: number; month: number;
   hourly_wage: number; total_hours: number; base_pay: number;
-  holiday_pay: number; total_pay: number;
+  holiday_pay: number; total_pay: number; is_finalized?: boolean;
   daily_details: DailyDetail[]; weekly_details: WeekDetail[];
 }
 interface StoreSum { store_id: number; store_name: string; total_cost: number; }
@@ -30,6 +30,11 @@ export default function Payroll() {
   const [error, setError] = useState<string | null>(null);
   const [includeZeroHours, setIncludeZeroHours] = useState(false);
 
+  // 급여 확정 상태
+  const [isFinalized, setIsFinalized] = useState(false);
+  const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
+
   useEffect(() => { loadPayroll(); }, [year, month]);
 
   async function loadPayroll() {
@@ -37,14 +42,17 @@ export default function Payroll() {
     setError(null);
     setSelected(null);
     try {
-      const [payRes, storeRes] = await Promise.all([
-        api.get(`/payroll/${year}/${month}`),
-        api.get(`/payroll/${year}/${month}/store-summary`),
+      const [payRes, storeRes, statusRes] = await Promise.all([
+        payrollApi.getAll(year, month),
+        payrollApi.getStoreSummary(year, month),
+        payrollApi.getFinalizeStatus(year, month),
       ]);
       const safePayData = Array.isArray(payRes.data) ? payRes.data : [];
       const safeStoreData = Array.isArray(storeRes.data) ? storeRes.data : [];
       setRows(safePayData);
       setStoreSums(safeStoreData);
+      setIsFinalized(statusRes.data?.is_finalized ?? false);
+      setFinalizedAt(statusRes.data?.finalized_at ?? null);
     } catch (err: any) {
       setError(err.message || '급여 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
       setRows([]);
@@ -54,14 +62,29 @@ export default function Payroll() {
     }
   }
 
+  async function handleFinalize() {
+    if (!confirm(
+      `${year}년 ${month}월 급여를 확정하시겠습니까?\n\n` +
+      `확정 후에는 스케줄·시급이 변경되어도 확정된 급여는 유지됩니다.\n` +
+      `이 작업은 되돌릴 수 없습니다.`
+    )) return;
+    setFinalizing(true);
+    try {
+      await payrollApi.finalize(year, month);
+      await loadPayroll();
+    } catch (err: any) {
+      alert(err.message || '급여 확정 중 오류가 발생했습니다.');
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
   const safeRows = Array.isArray(rows) ? rows : [];
   const safeStoreSums = Array.isArray(storeSums) ? storeSums : [];
 
   const hasWorkedEmployees = safeRows.some(r => (r?.total_hours ?? 0) > 0);
   const displayedRows = useMemo(() => {
-    if (!hasWorkedEmployees || includeZeroHours) {
-      return safeRows;
-    }
+    if (!hasWorkedEmployees || includeZeroHours) return safeRows;
     return safeRows.filter(r => (r?.total_hours ?? 0) > 0);
   }, [safeRows, hasWorkedEmployees, includeZeroHours]);
 
@@ -69,7 +92,6 @@ export default function Payroll() {
   const totalPay = safeRows.reduce((s, r) => s + (r?.total_pay ?? 0), 0);
   const totalHoliday = safeRows.reduce((s, r) => s + (r?.holiday_pay ?? 0), 0);
 
-  // 주차별로 일별 상세를 그룹핑
   function groupByWeek(daily?: DailyDetail[], weekly?: WeekDetail[]) {
     if (!daily || !weekly) return [];
     const groups: { week: WeekDetail; days: DailyDetail[] }[] = [];
@@ -85,6 +107,10 @@ export default function Payroll() {
     return groups;
   }
 
+  const finalizedDateStr = finalizedAt
+    ? new Date(finalizedAt).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null;
+
   return (
     <div>
       <div className="page-header pay-header">
@@ -92,15 +118,39 @@ export default function Payroll() {
           <h2 className="page-title">급여 관리</h2>
           <p className="page-subtitle">파트타이머 급여 및 주휴수당 · 실제 근무시간 기준</p>
         </div>
-        <div style={{display:'flex', gap:8}}>
+        <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
           <select value={year} onChange={e=>setYear(Number(e.target.value))} className="emp-month-select">
             {[year-1,year,year+1].map(y=><option key={y} value={y}>{y}년</option>)}
           </select>
           <select value={month} onChange={e=>setMonth(Number(e.target.value))} className="emp-month-select">
             {Array.from({length:12},(_,i)=>i+1).map(m=><option key={m} value={m}>{m}월</option>)}
           </select>
+          {isFinalized ? (
+            <span className="pay-finalized-badge">✅ 급여 확정됨</span>
+          ) : (
+            <button
+              className="btn btn--primary"
+              onClick={handleFinalize}
+              disabled={finalizing || loading}
+            >
+              {finalizing ? '확정 중...' : '급여 확정'}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* 확정 상태 배너 */}
+      {isFinalized ? (
+        <div className="pay-status-banner pay-status-banner--finalized">
+          ✅ {year}년 {month}월 급여 확정 완료
+          {finalizedDateStr && <span className="pay-finalized-at"> · 확정일시: {finalizedDateStr}</span>}
+          <span className="pay-status-note">확정 이후 스케줄·시급 변경 시에도 이 급여 데이터는 유지됩니다.</span>
+        </div>
+      ) : (
+        <div className="pay-status-banner pay-status-banner--draft">
+          📋 {year}년 {month}월 급여 계산 중 / 미확정 — 현재 스케줄 및 실제 근무 기준으로 실시간 계산됩니다.
+        </div>
+      )}
 
       {error && (
         <div className="card" style={{ backgroundColor: '#fff2f0', borderColor: '#ffccc7', color: '#cf1322', padding: '12px 16px', marginBottom: 16 }}>
@@ -206,6 +256,7 @@ export default function Payroll() {
               <div className="pay-detail-header">
                 <span className="pay-detail-name">{selected.employee_name}</span>
                 <span className="pay-detail-wage">시급 {(selected.hourly_wage ?? 0).toLocaleString()}원</span>
+                {selected.is_finalized && <span className="pay-finalized-badge" style={{fontSize:11}}>확정</span>}
               </div>
 
               {groupByWeek(selected.daily_details, selected.weekly_details).map(({ week, days }) => (

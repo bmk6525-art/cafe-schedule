@@ -182,6 +182,9 @@
 
 .btn--danger:hover { background-color: #fddede; }
 
+.btn--success { background-color: #f0faf4; color: #27ae60; }
+.btn--success:hover { background-color: #d9f2e3; }
+
 .btn--ghost {
   background: none;
   color: #4f7cff;

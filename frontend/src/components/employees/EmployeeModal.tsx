@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Employee, Store } from '../../types';
 import { employeeApi } from '../../services/api';
 import './EmployeeModal.css';
@@ -29,6 +29,8 @@ export default function EmployeeModal({ employee, stores, onClose, onSaved }: Pr
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // 드래그 버그 수정: mousedown 시작 위치를 추적하여 modal 내부에서 시작된 드래그를 backdrop 클릭과 구분
+  const mouseDownRef = useRef<EventTarget | null>(null);
 
   useEffect(() => {
     if (employee) {
@@ -89,7 +91,14 @@ export default function EmployeeModal({ employee, stores, onClose, onSaved }: Pr
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => { mouseDownRef.current = e.target; }}
+      onClick={(e) => {
+        if (mouseDownRef.current === e.currentTarget) onClose();
+        mouseDownRef.current = null;
+      }}
+    >
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">{isEdit ? '직원 정보 수정' : '직원 추가'}</h2>

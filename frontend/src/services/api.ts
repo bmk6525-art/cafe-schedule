@@ -36,6 +36,7 @@ export const storeApi = {
   create: (data: object) => api.post('/stores', data),
   update: (id: number, data: object) => api.put(`/stores/${id}`, data),
   deactivate: (id: number) => api.delete(`/stores/${id}`),
+  activate: (id: number) => api.post(`/stores/${id}/activate`),
 };
 
 // Employee API
@@ -51,6 +52,7 @@ export const employeeApi = {
   create: (data: object) => api.post('/employees', data),
   update: (id: number, data: object) => api.put(`/employees/${id}`, data),
   deactivate: (id: number) => api.delete(`/employees/${id}`),
+  activate: (id: number) => api.post(`/employees/${id}/activate`),
 };
 
 // Schedule API
@@ -91,6 +93,18 @@ export const workPatternApi = {
   get: (employeeId: number) => api.get(`/employees/${employeeId}/work-patterns`),
   upsert: (employeeId: number, data: object) =>
     api.put(`/employees/${employeeId}/work-patterns`, data),
+};
+
+// Payroll API
+export const payrollApi = {
+  getAll: (year: number, month: number) =>
+    api.get(`/payroll/${year}/${month}`),
+  getStoreSummary: (year: number, month: number) =>
+    api.get(`/payroll/${year}/${month}/store-summary`),
+  getFinalizeStatus: (year: number, month: number) =>
+    api.get(`/payroll/${year}/${month}/finalize-status`),
+  finalize: (year: number, month: number) =>
+    api.post(`/payroll/${year}/${month}/finalize`),
 };
 
 // Seed API (개발용)

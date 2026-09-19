@@ -17,6 +17,7 @@ export default function Stores() {
   const [editTarget, setEditTarget] = useState<Store | null | 'new'>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<Store | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     loadStores();
@@ -41,6 +42,17 @@ export default function Stores() {
       await loadStores();
     } finally {
       setDeactivating(false);
+    }
+  }
+
+  async function handleActivate(store: Store) {
+    if (!confirm(`'${store.name}'을(를) 다시 활성화하시겠습니까?`)) return;
+    setActivating(true);
+    try {
+      await storeApi.activate(store.id);
+      await loadStores();
+    } finally {
+      setActivating(false);
     }
   }
 
@@ -134,9 +146,13 @@ export default function Stores() {
                     필요인원
                   </button>
                 )}
-                {store.is_active && (
+                {store.is_active ? (
                   <button className="btn btn--danger btn--sm" onClick={() => setDeactivateTarget(store)}>
                     비활성화
+                  </button>
+                ) : (
+                  <button className="btn btn--success btn--sm" onClick={() => handleActivate(store)} disabled={activating}>
+                    활성화
                   </button>
                 )}
               </div>

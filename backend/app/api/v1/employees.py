@@ -83,3 +83,17 @@ def deactivate_employee(employee_id: int, db: Session = Depends(get_db)):
     employee.is_active = False
     db.commit()
     return {"message": f"'{employee.name}' 직원이 비활성화되었습니다.", "success": True}
+
+
+@router.post("/{employee_id}/activate", response_model=MessageResponse)
+def activate_employee(employee_id: int, db: Session = Depends(get_db)):
+    """직원 활성화"""
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="직원을 찾을 수 없습니다."
+        )
+    employee.is_active = True
+    db.commit()
+    return {"message": f"'{employee.name}' 직원이 활성화되었습니다.", "success": True}

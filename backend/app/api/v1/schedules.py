@@ -96,7 +96,7 @@ def update_schedule(schedule_id: int, data: dict, db: Session = Depends(get_db))
     before = {'start_time': s.start_time, 'end_time': s.end_time,
                'store_id': s.store_id, 'break_minutes': s.break_minutes}
 
-    allowed = ['start_time', 'end_time', 'store_id', 'break_minutes', 'memo', 'status']
+    allowed = ['employee_id', 'work_date', 'start_time', 'end_time', 'store_id', 'break_minutes', 'memo', 'status']
     for field in allowed:
         if field in data:
             setattr(s, field, data[field])

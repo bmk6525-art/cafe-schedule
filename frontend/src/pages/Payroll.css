@@ -95,6 +95,33 @@
   .pay-summary-grid { grid-template-columns:1fr 1fr; }
 }
 
+/* 급여 확정 상태 */
+.pay-finalized-badge {
+  display:inline-flex; align-items:center;
+  background:#e6f4ea; color:#1a7a4a;
+  font-size:13px; font-weight:700;
+  padding:5px 12px; border-radius:20px;
+  border:1.5px solid #b7dfca;
+  white-space:nowrap;
+}
+
+.pay-status-banner {
+  display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  padding:10px 16px; border-radius:10px;
+  font-size:13px; font-weight:600; margin-bottom:16px;
+}
+.pay-status-banner--finalized {
+  background:#e6f4ea; color:#1a7a4a; border:1.5px solid #b7dfca;
+}
+.pay-status-banner--draft {
+  background:#fff8e1; color:#8a6000; border:1.5px solid #f0c040;
+}
+.pay-finalized-at { font-weight:400; color:#2d6a4f; }
+.pay-status-note {
+  font-size:12px; font-weight:400; color:#4a9c6c;
+  margin-left:auto;
+}
+
 @media (max-width:768px) {
   .pay-header { flex-direction:column; gap:10px; align-items:flex-start; }
 
