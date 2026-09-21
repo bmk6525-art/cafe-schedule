@@ -143,11 +143,11 @@ export default function ScheduleEditModal({ schedule, stores, employees = [], de
             <div className="form-row">
               <div className="form-group">
                 <label>시작 시간</label>
-                <input type="time" name="start_time" value={form.start_time} onChange={handle} />
+                <input type="time" step="300" name="start_time" value={form.start_time} onChange={handle} />
               </div>
               <div className="form-group">
                 <label>종료 시간</label>
-                <input type="time" name="end_time" value={form.end_time} onChange={handle} />
+                <input type="time" step="300" name="end_time" value={form.end_time} onChange={handle} />
               </div>
             </div>
 

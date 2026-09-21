@@ -99,6 +99,8 @@
 .btn--primary:disabled { background:#c8cad8; cursor:not-allowed; }
 .btn--secondary { background:#f0f2fa; color:#4a4d6a; }
 .btn--secondary:hover { background:#e4e7f5; }
+.btn--danger { background:#e74c3c; color:#fff; }
+.btn--danger:hover { background:#c0392b; }
 
 /* ── 뷰 전환 ── */
 .view-toggle { display:flex; gap:4px; }

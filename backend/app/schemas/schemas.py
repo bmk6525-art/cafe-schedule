@@ -2,10 +2,22 @@
 Pydantic 스키마 - API 요청/응답 데이터 형식 정의
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import date, datetime
 from app.models.models import EmployeeType, DayOfWeek, ScheduleStatus, ChangeReason
+
+
+def _validate_5min(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return v
+    try:
+        minute = int(v.split(':')[1])
+    except (IndexError, ValueError):
+        raise ValueError(f"시간 형식이 올바르지 않습니다: {v}")
+    if minute % 5 != 0:
+        raise ValueError(f"시간은 5분 단위여야 합니다 (입력값: {v})")
+    return v
 
 
 # ───────────────────────────────────────────────
@@ -17,6 +29,11 @@ class StoreBase(BaseModel):
     open_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     close_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     memo: Optional[str] = None
+
+    @field_validator('open_time', 'close_time')
+    @classmethod
+    def open_close_5min(cls, v: str) -> str:
+        return _validate_5min(v)
 
 
 class StoreCreate(StoreBase):
@@ -32,6 +49,11 @@ class StaffRequirementItem(BaseModel):
     start_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     end_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     required_count: int = Field(..., ge=0)
+
+    @field_validator('start_time', 'end_time')
+    @classmethod
+    def req_time_5min(cls, v: str) -> str:
+        return _validate_5min(v)
 
 class StaffRequirementBulk(BaseModel):
     items: List[StaffRequirementItem]
@@ -50,6 +72,11 @@ class StoreUpdate(BaseModel):
     close_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     is_active: Optional[bool] = None
     memo: Optional[str] = None
+
+    @field_validator('open_time', 'close_time')
+    @classmethod
+    def update_time_5min(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_5min(v)
 
 
 class StoreResponse(StoreBase):
@@ -118,6 +145,11 @@ class AvailabilityDayItem(BaseModel):
     unavailable_end: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     memo: Optional[str] = None
 
+    @field_validator('unavailable_start', 'unavailable_end')
+    @classmethod
+    def av_time_5min(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_5min(v)
+
 class MonthlyAvailabilityUpsert(BaseModel):
     days: List[AvailabilityDayItem]
 
@@ -140,6 +172,11 @@ class AvailabilityExceptionCreate(BaseModel):
     unavailable_end: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     memo: Optional[str] = None
 
+    @field_validator('unavailable_start', 'unavailable_end')
+    @classmethod
+    def exc_time_5min(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_5min(v)
+
 class AvailabilityExceptionResponse(AvailabilityExceptionCreate):
     id: int
     employee_id: int
@@ -156,6 +193,11 @@ class WorkPatternItem(BaseModel):
     start_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     end_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     store_id: Optional[int] = None
+
+    @field_validator('start_time', 'end_time')
+    @classmethod
+    def wp_time_5min(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_5min(v)
 
 
 class WorkPatternUpsert(BaseModel):

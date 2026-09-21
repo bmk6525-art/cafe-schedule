@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Employee, Store } from '../types';
-import { employeeApi, storeApi } from '../services/api';
+import { employeeApi, storeApi, availabilityApi } from '../services/api';
 import EmployeeModal from '../components/employees/EmployeeModal';
 import WorkPatternModal from '../components/employees/WorkPatternModal';
 import AvailabilityModal from '../components/employees/AvailabilityModal';
@@ -21,6 +21,11 @@ export default function Employees() {
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const [avYear, setAvYear] = useState(nextMonth.getFullYear());
   const [avMonth, setAvMonth] = useState(nextMonth.getMonth() + 1);
+
+  // 불가능시간 일괄 복사 상태
+  const [bulkCopyFromYear, setBulkCopyFromYear] = useState(now.getFullYear());
+  const [bulkCopyFromMonth, setBulkCopyFromMonth] = useState(now.getMonth() + 1);
+  const [bulkCopying, setBulkCopying] = useState(false);
 
   const [editTarget, setEditTarget] = useState<Employee | null | 'new'>(null);
   const [patternTarget, setPatternTarget] = useState<Employee | null>(null);
@@ -99,6 +104,19 @@ export default function Employees() {
     }
   }
 
+  async function handleBulkCopyAv() {
+    if (!confirm(`${bulkCopyFromYear}년 ${bulkCopyFromMonth}월 불가능시간 설정을 ${avYear}년 ${avMonth}월로 전체 복사합니다.\n기존 ${avYear}년 ${avMonth}월 데이터는 덮어씁니다. 계속하시겠습니까?`)) return;
+    setBulkCopying(true);
+    try {
+      const res = await availabilityApi.bulkCopy(bulkCopyFromYear, bulkCopyFromMonth, avYear, avMonth);
+      alert(res.data.message);
+    } catch (e: any) {
+      alert(`복사 오류: ${e.message}`);
+    } finally {
+      setBulkCopying(false);
+    }
+  }
+
   const regulars = employees.filter((e) => e.employee_type === 'REGULAR' && e.is_active).length;
   const parts = employees.filter((e) => e.employee_type === 'PART_TIMER' && e.is_active).length;
 
@@ -130,6 +148,20 @@ export default function Employees() {
             <option key={m} value={m}>{m}월</option>
           ))}
         </select>
+        <span className="emp-month-label" style={{marginLeft:16}}>다른 달에서 불러오기:</span>
+        <select value={bulkCopyFromYear} onChange={(e) => setBulkCopyFromYear(Number(e.target.value))} className="emp-month-select">
+          {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
+            <option key={y} value={y}>{y}년</option>
+          ))}
+        </select>
+        <select value={bulkCopyFromMonth} onChange={(e) => setBulkCopyFromMonth(Number(e.target.value))} className="emp-month-select">
+          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+            <option key={m} value={m}>{m}월</option>
+          ))}
+        </select>
+        <button className="btn btn--secondary btn--sm" onClick={handleBulkCopyAv} disabled={bulkCopying}>
+          {bulkCopying ? '복사 중...' : '전체 복사'}
+        </button>
       </div>
 
       {/* 검색 및 필터 */}

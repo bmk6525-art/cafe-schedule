@@ -50,10 +50,10 @@ def upsert_monthly_availability(employee_id: int, year: int, month: int,
     db.query(MonthlyAvailability).filter_by(
         employee_id=employee_id, year=year, month=month
     ).delete()
+    db.flush()
 
     new_rows = []
     for item in data.days:
-        # 종일 가능인 경우 저장하지 않음 (기본값이므로)
         if not item.is_day_unavailable and not item.unavailable_start:
             continue
         row = MonthlyAvailability(
@@ -72,6 +72,55 @@ def upsert_monthly_availability(employee_id: int, year: int, month: int,
         db.refresh(r)
     new_rows.sort(key=lambda r: DAY_ORDER.index(r.day_of_week))
     return new_rows
+
+
+# ── 전체 직원 불가능 시간 일괄 복사 ──
+
+@router.post("/availability/bulk-copy", response_model=dict)
+def bulk_copy_availability(
+    from_year: int, from_month: int,
+    to_year: int, to_month: int,
+    db: Session = Depends(get_db)
+):
+    """모든 파트타이머의 불가능 시간 설정을 다른 달로 일괄 복사"""
+    src_rows = db.query(MonthlyAvailability).filter_by(
+        year=from_year, month=from_month
+    ).all()
+
+    if not src_rows:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{from_year}년 {from_month}월의 불가능 시간 데이터가 없습니다."
+        )
+
+    db.query(MonthlyAvailability).filter_by(year=to_year, month=to_month).delete()
+    db.flush()
+
+    seen: set = set()
+    count = 0
+    for r in src_rows:
+        key = (r.employee_id, r.day_of_week)
+        if key in seen:
+            continue
+        seen.add(key)
+        new_r = MonthlyAvailability(
+            employee_id=r.employee_id,
+            year=to_year, month=to_month,
+            day_of_week=r.day_of_week,
+            is_day_unavailable=r.is_day_unavailable,
+            unavailable_start=r.unavailable_start,
+            unavailable_end=r.unavailable_end,
+            memo=r.memo,
+        )
+        db.add(new_r)
+        count += 1
+
+    db.commit()
+    return {
+        "message": f"{from_year}년 {from_month}월 → {to_year}년 {to_month}월: {count}개 복사 완료",
+        "count": count,
+        "success": True,
+    }
 
 
 # ── 특정 날짜 예외 ──

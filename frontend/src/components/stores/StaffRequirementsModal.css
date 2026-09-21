@@ -96,3 +96,35 @@
   gap: 10px;
   align-items: center;
 }
+
+.req-day-copy-panel {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: #f0f4ff;
+  border-radius: 10px;
+  border: 1.5px solid #c7d3ff;
+}
+
+.req-day-copy-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a4d6a;
+  margin-bottom: 10px;
+}
+
+.req-day-copy-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.req-day-copy-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a4d6a;
+  cursor: pointer;
+}

@@ -9,10 +9,8 @@ export const api = axios.create({
   },
 });
 
-// 에러 메시지를 사용자 친화적으로 변환
 api.interceptors.response.use(
   (response) => {
-    // Vercel 등에서 API 프록시 설정이 안 되어 index.html이 200으로 반환되는 현상 방어
     if (typeof response.data === 'string' && response.data.trim().toLowerCase().startsWith('<!doctype html')) {
       return Promise.reject(new Error('백엔드 API 서버에 연결할 수 없습니다. (VITE_API_URL 설정을 확인해주세요)'));
     }
@@ -71,6 +69,10 @@ export const scheduleApi = {
   lock: (id: number) => api.post(`/schedules/${id}/lock`),
   validate: (year: number, month: number) =>
     api.get('/schedules/validate', { params: { year, month } }),
+  deduplicate: (year: number, month: number) =>
+    api.post('/schedules/deduplicate', null, { params: { year, month } }),
+  bulkDelete: (year: number, month: number, includeConfirmed = false) =>
+    api.delete('/schedules/bulk', { params: { year, month, include_confirmed: includeConfirmed } }),
 };
 
 // Staff Requirements API
@@ -79,6 +81,10 @@ export const requirementsApi = {
     api.get(`/stores/${storeId}/requirements/${year}/${month}`),
   upsert: (storeId: number, year: number, month: number, data: object) =>
     api.put(`/stores/${storeId}/requirements/${year}/${month}`, data),
+  bulkCopy: (fromYear: number, fromMonth: number, toYear: number, toMonth: number) =>
+    api.post('/stores/requirements/bulk-copy', null, {
+      params: { from_year: fromYear, from_month: fromMonth, to_year: toYear, to_month: toMonth },
+    }),
 };
 
 // Availability API
@@ -89,6 +95,10 @@ export const availabilityApi = {
     api.put(`/employees/${empId}/availability/${year}/${month}`, data),
   getExceptions: (empId: number, year: number, month: number) =>
     api.get(`/employees/${empId}/exceptions/${year}/${month}`),
+  bulkCopy: (fromYear: number, fromMonth: number, toYear: number, toMonth: number) =>
+    api.post('/employees/availability/bulk-copy', null, {
+      params: { from_year: fromYear, from_month: fromMonth, to_year: toYear, to_month: toMonth },
+    }),
 };
 
 // Work Pattern API

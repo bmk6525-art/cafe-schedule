@@ -103,7 +103,7 @@ export default function StoreModal({ store, onClose, onSaved }: Props) {
               <div className="form-group form-group--required">
                 <label>운영 시작 시간</label>
                 <input
-                  type="time"
+                  type="time" step="300"
                   name="open_time"
                   value={form.open_time}
                   onChange={handleChange}
@@ -112,7 +112,7 @@ export default function StoreModal({ store, onClose, onSaved }: Props) {
               <div className="form-group form-group--required">
                 <label>운영 종료 시간</label>
                 <input
-                  type="time"
+                  type="time" step="300"
                   name="close_time"
                   value={form.close_time}
                   onChange={handleChange}

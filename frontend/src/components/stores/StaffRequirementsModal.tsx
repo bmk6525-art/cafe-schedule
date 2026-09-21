@@ -5,11 +5,23 @@ import { api } from '../../services/api';
 import '../../components/employees/EmployeeModal.css';
 import './StaffRequirementsModal.css';
 
-interface Slot { day_of_week: DayOfWeek; start_time: string; end_time: string; required_count: number; }
+let _localIdCounter = 0;
+
+interface Slot {
+  _localId: number;
+  day_of_week: DayOfWeek;
+  start_time: string;
+  end_time: string;
+  required_count: number;
+}
 
 interface Props { store: Store; year: number; month: number; allStores: Store[]; onClose: () => void; }
 
 const ACTIVE_DAY_INIT: DayOfWeek = 'MON';
+
+function withLocalId(item: Omit<Slot, '_localId'>): Slot {
+  return { ...item, _localId: ++_localIdCounter };
+}
 
 export default function StaffRequirementsModal({ store, year, month, allStores, onClose }: Props) {
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -18,6 +30,12 @@ export default function StaffRequirementsModal({ store, year, month, allStores, 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+
+  // 요일 복사 UI 상태
+  const [showDayCopy, setShowDayCopy] = useState(false);
+  const [copyTargets, setCopyTargets] = useState<DayOfWeek[]>([]);
+
+  // 다른 달 복사 상태
   const [copyFrom, setCopyFrom] = useState('');
 
   useEffect(() => { loadData(); }, []);
@@ -25,40 +43,72 @@ export default function StaffRequirementsModal({ store, year, month, allStores, 
   async function loadData() {
     try {
       const res = await api.get(`/stores/${store.id}/requirements/${year}/${month}`);
-      setSlots(res.data);
+      // 중복 제거 후 localId 부여
+      const seen = new Set<string>();
+      const deduped: Slot[] = [];
+      for (const item of res.data) {
+        const key = `${item.day_of_week}|${item.start_time}|${item.end_time}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(withLocalId({
+          day_of_week: item.day_of_week,
+          start_time: item.start_time,
+          end_time: item.end_time,
+          required_count: item.required_count,
+        }));
+      }
+      setSlots(deduped);
     } finally { setLoading(false); }
   }
 
-  const daySlots = slots.filter((s) => s.day_of_week === activeDay)
+  const daySlots = slots
+    .filter((s) => s.day_of_week === activeDay)
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
   function addSlot() {
-    setSlots((prev) => [...prev, { day_of_week: activeDay, start_time: '10:00', end_time: '14:00', required_count: 2 }]);
+    setSlots((prev) => [...prev, withLocalId({
+      day_of_week: activeDay, start_time: '10:00', end_time: '14:00', required_count: 2,
+    })]);
   }
 
-  function updateSlot(idx: number, field: keyof Slot, value: any) {
-    const globalIdx = slots.indexOf(daySlots[idx]);
-    setSlots((prev) => prev.map((s, i) => i === globalIdx ? { ...s, [field]: value } : s));
+  function updateSlot(localId: number, field: keyof Omit<Slot, '_localId'>, value: any) {
+    setSlots((prev) => prev.map((s) => s._localId === localId ? { ...s, [field]: value } : s));
   }
 
-  function removeSlot(idx: number) {
-    const globalIdx = slots.indexOf(daySlots[idx]);
-    setSlots((prev) => prev.filter((_, i) => i !== globalIdx));
+  function removeSlot(localId: number) {
+    setSlots((prev) => prev.filter((s) => s._localId !== localId));
   }
 
-  function copyDayToAll() {
+  // 요일 복사
+  function handleDayCopy() {
+    if (copyTargets.length === 0) return;
     const src = slots.filter((s) => s.day_of_week === activeDay);
-    const others = DAY_ORDER.filter((d) => d !== activeDay);
+    const overwriteDays = copyTargets.filter((d) => slots.some((s) => s.day_of_week === d));
+    if (overwriteDays.length > 0) {
+      const names = overwriteDays.map((d) => DAY_LABELS[d]).join(', ');
+      if (!confirm(`${names}요일에 기존 설정이 있습니다. 덮어쓰시겠습니까?`)) return;
+    }
     setSlots((prev) => [
-      ...prev.filter((s) => s.day_of_week === activeDay),
-      ...others.flatMap((d) => src.map((s) => ({ ...s, day_of_week: d }))),
+      ...prev.filter((s) => !copyTargets.includes(s.day_of_week)),
+      ...copyTargets.flatMap((d) => src.map((s) => withLocalId({ ...s, day_of_week: d }))),
     ]);
+    setShowDayCopy(false);
+    setCopyTargets([]);
+  }
+
+  function toggleCopyTarget(day: DayOfWeek) {
+    setCopyTargets((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
   }
 
   async function handleSave() {
     setSaving(true); setError('');
     try {
-      await api.put(`/stores/${store.id}/requirements/${year}/${month}`, { items: slots });
+      const items = slots.map(({ day_of_week, start_time, end_time, required_count }) => ({
+        day_of_week, start_time, end_time, required_count,
+      }));
+      await api.put(`/stores/${store.id}/requirements/${year}/${month}`, { items });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e: any) { setError(e.message); }
@@ -92,12 +142,12 @@ export default function StaffRequirementsModal({ store, year, month, allStores, 
         </div>
 
         <div className="modal-body">
-          {/* 복사 기능 */}
+          {/* 다른 매장/달 복사 */}
           <div className="req-copy-bar">
-            <span className="req-copy-label">복사 가져오기:</span>
+            <span className="req-copy-label">다른 달·매장에서 복사:</span>
             <select className="emp-month-select" value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)}>
               <option value="">선택...</option>
-              {allStores.map((s) => [-1, 0].map((mo) => {
+              {allStores.map((s) => [-2, -1, 0].map((mo) => {
                 const d = new Date(year, month - 1 + mo);
                 return (
                   <option key={`${s.id}-${d.getFullYear()}-${d.getMonth()+1}`}
@@ -108,7 +158,7 @@ export default function StaffRequirementsModal({ store, year, month, allStores, 
               }))}
             </select>
             <button className="btn btn--secondary btn--sm" onClick={handleCopy} disabled={!copyFrom || saving}>
-              복사
+              불러오기
             </button>
           </div>
 
@@ -133,29 +183,60 @@ export default function StaffRequirementsModal({ store, year, month, allStores, 
                 {daySlots.length === 0 && (
                   <p className="req-empty">시간대를 추가하세요.</p>
                 )}
-                {daySlots.map((slot, i) => (
-                  <div key={i} className="req-slot-row">
-                    <input type="time" className="wp-time-input" value={slot.start_time}
-                      onChange={(e) => updateSlot(i, 'start_time', e.target.value)} />
+                {daySlots.map((slot) => (
+                  <div key={slot._localId} className="req-slot-row">
+                    <input type="time" step="300" className="wp-time-input" value={slot.start_time}
+                      onChange={(e) => updateSlot(slot._localId, 'start_time', e.target.value)} />
                     <span className="req-tilde">~</span>
-                    <input type="time" className="wp-time-input" value={slot.end_time}
-                      onChange={(e) => updateSlot(i, 'end_time', e.target.value)} />
+                    <input type="time" step="300" className="wp-time-input" value={slot.end_time}
+                      onChange={(e) => updateSlot(slot._localId, 'end_time', e.target.value)} />
                     <span className="req-count-label">필요인원</span>
                     <input type="number" className="req-count-input" min={0} max={20}
                       value={slot.required_count}
-                      onChange={(e) => updateSlot(i, 'required_count', Number(e.target.value))} />
+                      onChange={(e) => updateSlot(slot._localId, 'required_count', Number(e.target.value))} />
                     <span className="req-count-label">명</span>
-                    <button className="btn btn--danger btn--sm" onClick={() => removeSlot(i)}>삭제</button>
+                    <button className="btn btn--danger btn--sm" onClick={() => removeSlot(slot._localId)}>삭제</button>
                   </div>
                 ))}
               </div>
 
               <div className="req-actions">
                 <button className="btn btn--secondary btn--sm" onClick={addSlot}>+ 시간대 추가</button>
-                <button className="btn btn--ghost btn--sm" onClick={copyDayToAll}>
-                  {DAY_LABELS[activeDay]}요일 설정 → 전체 요일 복사
+                <button className="btn btn--ghost btn--sm" onClick={() => { setShowDayCopy(!showDayCopy); setCopyTargets([]); }}>
+                  {DAY_LABELS[activeDay]}요일 → 다른 요일 복사
                 </button>
               </div>
+
+              {/* 요일 복사 패널 */}
+              {showDayCopy && (
+                <div className="req-day-copy-panel">
+                  <p className="req-day-copy-label">복사할 대상 요일 선택 (복수 선택 가능):</p>
+                  <div className="req-day-copy-checks">
+                    {DAY_ORDER.filter((d) => d !== activeDay).map((d) => (
+                      <label key={d} className="req-day-copy-check">
+                        <input
+                          type="checkbox"
+                          checked={copyTargets.includes(d)}
+                          onChange={() => toggleCopyTarget(d)}
+                        />
+                        {DAY_LABELS[d]}
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button
+                      className="btn btn--primary btn--sm"
+                      onClick={handleDayCopy}
+                      disabled={copyTargets.length === 0}
+                    >
+                      {copyTargets.map((d) => DAY_LABELS[d]).join(', ')}요일로 복사
+                    </button>
+                    <button className="btn btn--secondary btn--sm" onClick={() => { setShowDayCopy(false); setCopyTargets([]); }}>
+                      취소
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

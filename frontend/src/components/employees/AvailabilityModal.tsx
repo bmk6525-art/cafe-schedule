@@ -175,12 +175,12 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
                         </label>
                       </td>
                       <td>
-                        <input type="time" className="wp-time-input"
+                        <input type="time" step="300" className="wp-time-input"
                           value={row.unavailable_start} disabled={row.is_day_unavailable}
                           onChange={(e) => updateRow(row.day_of_week, 'unavailable_start', e.target.value)} />
                       </td>
                       <td>
-                        <input type="time" className="wp-time-input"
+                        <input type="time" step="300" className="wp-time-input"
                           value={row.unavailable_end} disabled={row.is_day_unavailable}
                           onChange={(e) => updateRow(row.day_of_week, 'unavailable_end', e.target.value)} />
                       </td>
@@ -224,10 +224,10 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
                 </label>
                 <span style={{ fontSize: 13, color: '#8b8fa8', marginRight: 8 }}>종일</span>
                 {!newEx.is_day_unavailable && (<>
-                  <input type="time" className="wp-time-input" value={newEx.unavailable_start}
+                  <input type="time" step="300" className="wp-time-input" value={newEx.unavailable_start}
                     onChange={(e) => setNewEx((p) => ({ ...p, unavailable_start: e.target.value }))} />
                   <span style={{ margin: '0 6px', color: '#8b8fa8' }}>~</span>
-                  <input type="time" className="wp-time-input" value={newEx.unavailable_end}
+                  <input type="time" step="300" className="wp-time-input" value={newEx.unavailable_end}
                     onChange={(e) => setNewEx((p) => ({ ...p, unavailable_end: e.target.value }))} />
                 </>)}
                 <button className="btn btn--primary btn--sm" style={{ marginLeft: 8 }}

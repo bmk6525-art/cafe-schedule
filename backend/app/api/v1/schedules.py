@@ -12,6 +12,9 @@ from app.schemas.schemas import MessageResponse
 
 router = APIRouter(prefix="/schedules", tags=["스케줄"])
 
+# 동일 월 중복 생성 방지용 in-memory 락
+_generating_months: set = set()
+
 
 # ── 조회 ──
 
@@ -46,7 +49,6 @@ def get_schedules(
 
     rows = q.order_by(Schedule.work_date, Schedule.start_time).all()
 
-    # 직원·매장 정보 포함해서 응답
     result = []
     for s, emp, store in rows:
         result.append({
@@ -111,13 +113,90 @@ def create_schedule(data: dict, db: Session = Depends(get_db)):
 
 @router.post("/generate", response_model=dict)
 def generate_schedule(year: int, month: int, db: Session = Depends(get_db)):
-    """스케줄 자동 생성 (그리디 알고리즘)"""
-    from app.schedule_engine.engine import engine
-    result = engine.generate(year, month, db)
+    """스케줄 자동 생성 — 중복 요청 방지 락 포함"""
+    lock_key = (year, month)
+    if lock_key in _generating_months:
+        raise HTTPException(
+            status_code=429,
+            detail=f"{year}년 {month}월 스케줄이 이미 생성 중입니다. 잠시 후 다시 시도해주세요."
+        )
+    _generating_months.add(lock_key)
+    try:
+        from app.schedule_engine.engine import engine
+        result = engine.generate(year, month, db)
+        return {
+            'message': f"스케줄 생성 완료: {result['created']}개 생성",
+            'created': result['created'],
+            'warnings': result['warnings'],
+            'success': True,
+        }
+    finally:
+        _generating_months.discard(lock_key)
+
+
+# ── 중복 스케줄 정리 ──
+
+@router.post("/deduplicate", response_model=dict)
+def deduplicate_schedules(year: int, month: int, db: Session = Depends(get_db)):
+    """동일 월의 중복 DRAFT 스케줄 정리 (CONFIRMED/LOCKED 보호)"""
+    start = date(year, month, 1)
+    end = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+
+    schedules = db.query(Schedule).filter(
+        Schedule.work_date >= start,
+        Schedule.work_date < end,
+        Schedule.is_cancelled == False,
+        Schedule.status == ScheduleStatus.DRAFT,
+    ).order_by(Schedule.id).all()
+
+    seen: set = set()
+    removed = 0
+    for s in schedules:
+        key = (s.employee_id, s.store_id, s.work_date, s.start_time, s.end_time)
+        if key in seen:
+            s.is_cancelled = True
+            removed += 1
+        else:
+            seen.add(key)
+
+    db.commit()
     return {
-        'message': f"스케줄 생성 완료: {result['created']}개 생성",
-        'created': result['created'],
-        'warnings': result['warnings'],
+        'message': f"중복 스케줄 {removed}개가 정리되었습니다.",
+        'removed': removed,
+        'success': True,
+    }
+
+
+# ── 전체 삭제 ──
+
+@router.delete("/bulk", response_model=dict)
+def bulk_delete_schedules(
+    year: int, month: int,
+    include_confirmed: bool = False,
+    db: Session = Depends(get_db)
+):
+    """선택한 월의 스케줄 일괄 삭제"""
+    start = date(year, month, 1)
+    end = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+
+    q = db.query(Schedule).filter(
+        Schedule.work_date >= start,
+        Schedule.work_date < end,
+        Schedule.is_cancelled == False,
+    )
+    if not include_confirmed:
+        q = q.filter(Schedule.status == ScheduleStatus.DRAFT)
+
+    schedules = q.all()
+    count = len(schedules)
+    for s in schedules:
+        s.is_cancelled = True
+
+    db.commit()
+    scope = "전체" if include_confirmed else "DRAFT"
+    return {
+        'message': f"{year}년 {month}월 {scope} 스케줄 {count}개가 삭제되었습니다.",
+        'deleted': count,
         'success': True,
     }
 
@@ -141,7 +220,6 @@ def update_schedule(schedule_id: int, data: dict, db: Session = Depends(get_db))
         if field in data:
             setattr(s, field, data[field])
 
-    # 변경 이력 저장
     history = ScheduleHistory(
         schedule_id=schedule_id,
         before_data=json.dumps(before, ensure_ascii=False),

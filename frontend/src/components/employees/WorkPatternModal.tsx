@@ -136,7 +136,7 @@ export default function WorkPatternModal({ employee, stores, onClose }: Props) {
                     </td>
                     <td>
                       <input
-                        type="time" className="wp-time-input"
+                        type="time" step="300" className="wp-time-input"
                         value={row.start_time}
                         disabled={row.is_day_off}
                         onChange={(e) => updateRow(row.day_of_week, 'start_time', e.target.value)}
@@ -144,7 +144,7 @@ export default function WorkPatternModal({ employee, stores, onClose }: Props) {
                     </td>
                     <td>
                       <input
-                        type="time" className="wp-time-input"
+                        type="time" step="300" className="wp-time-input"
                         value={row.end_time}
                         disabled={row.is_day_off}
                         onChange={(e) => updateRow(row.day_of_week, 'end_time', e.target.value)}

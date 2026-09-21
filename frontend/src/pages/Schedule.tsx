@@ -100,6 +100,26 @@ export default function Schedule() {
     } finally { setValidating(false); }
   }
 
+  async function handleDeduplicate() {
+    if (!confirm(`${year}년 ${month}월의 중복 DRAFT 스케줄을 정리합니다. 계속하시겠습니까?`)) return;
+    try {
+      const res = await scheduleApi.deduplicate(year, month);
+      alert(res.data.message);
+      await loadAll();
+    } catch (e: any) { alert(`오류: ${e.message}`); }
+  }
+
+  const [bulkDelConfirm, setBulkDelConfirm] = useState(false);
+  async function handleBulkDelete() {
+    if (!bulkDelConfirm) { setBulkDelConfirm(true); return; }
+    setBulkDelConfirm(false);
+    try {
+      const res = await scheduleApi.bulkDelete(year, month, false);
+      alert(res.data.message);
+      await loadAll();
+    } catch (e: any) { alert(`오류: ${e.message}`); }
+  }
+
   async function handleSaveImage() {
     if (!calRef.current) return;
     setSaving(true);
@@ -210,6 +230,16 @@ export default function Schedule() {
           </button>
           <button className="btn btn--secondary" onClick={handleValidate} disabled={validating}>
             {validating ? '검증 중...' : '스케줄 검증'}
+          </button>
+          <button className="btn btn--secondary" onClick={handleDeduplicate}>
+            중복 정리
+          </button>
+          <button
+            className={`btn ${bulkDelConfirm ? 'btn--danger' : 'btn--secondary'}`}
+            onClick={handleBulkDelete}
+            onBlur={() => setBulkDelConfirm(false)}
+          >
+            {bulkDelConfirm ? '한번 더 클릭 시 삭제' : 'DRAFT 전체 삭제'}
           </button>
         </div>
       </div>
