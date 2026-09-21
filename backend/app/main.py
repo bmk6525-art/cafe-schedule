@@ -27,7 +27,7 @@ def _run_migrations():
             if 'is_available_override' not in cols:
                 conn.execute(text(
                     "ALTER TABLE availability_exceptions "
-                    "ADD COLUMN is_available_override BOOLEAN NOT NULL DEFAULT 0"
+                    "ADD COLUMN is_available_override BOOLEAN NOT NULL DEFAULT false"
                 ))
 
         # schedules 성능 인덱스 추가 — 풀스캔 방지

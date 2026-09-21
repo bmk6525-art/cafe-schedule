@@ -150,21 +150,21 @@ def deduplicate_schedules(year: int, month: int, db: Session = Depends(get_db)):
     before_count = db.execute(text(
         "SELECT COUNT(*) FROM schedules "
         "WHERE work_date >= :s AND work_date < :e "
-        "AND is_cancelled = 0 AND status = 'DRAFT'"
+        "AND is_cancelled = false AND status = 'DRAFT'"
     ), {'s': s_iso, 'e': e_iso}).scalar() or 0
 
     if before_count == 0:
         return {'message': '정리할 중복 스케줄이 없습니다.', 'removed': 0, 'success': True}
 
-    # 중복 제거: 각 그룹에서 MIN(id)만 유지, 나머지 is_cancelled=1
+    # 중복 제거: 각 그룹에서 MIN(id)만 유지, 나머지 is_cancelled=true
     result = db.execute(text(
-        "UPDATE schedules SET is_cancelled = 1 "
+        "UPDATE schedules SET is_cancelled = true "
         "WHERE work_date >= :s AND work_date < :e "
-        "AND is_cancelled = 0 AND status = 'DRAFT' "
+        "AND is_cancelled = false AND status = 'DRAFT' "
         "AND id NOT IN ("
         "  SELECT MIN(id) FROM schedules "
         "  WHERE work_date >= :s AND work_date < :e "
-        "  AND is_cancelled = 0 AND status = 'DRAFT' "
+        "  AND is_cancelled = false AND status = 'DRAFT' "
         "  GROUP BY employee_id, store_id, work_date, start_time, end_time"
         ")"
     ), {'s': s_iso, 'e': e_iso})
