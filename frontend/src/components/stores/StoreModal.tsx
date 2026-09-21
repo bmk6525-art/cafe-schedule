@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Store } from '../../types';
 import { storeApi } from '../../services/api';
+import TimeSelect from '../TimeSelect';
 import '../../components/employees/EmployeeModal.css';
 
 interface Props {
@@ -102,20 +103,16 @@ export default function StoreModal({ store, onClose, onSaved }: Props) {
             <div className="form-row">
               <div className="form-group form-group--required">
                 <label>운영 시작 시간</label>
-                <input
-                  type="time" step="300"
-                  name="open_time"
+                <TimeSelect
                   value={form.open_time}
-                  onChange={handleChange}
+                  onChange={(v) => { setForm((p) => ({ ...p, open_time: v })); setError(''); }}
                 />
               </div>
               <div className="form-group form-group--required">
                 <label>운영 종료 시간</label>
-                <input
-                  type="time" step="300"
-                  name="close_time"
+                <TimeSelect
                   value={form.close_time}
-                  onChange={handleChange}
+                  onChange={(v) => { setForm((p) => ({ ...p, close_time: v })); setError(''); }}
                 />
               </div>
             </div>

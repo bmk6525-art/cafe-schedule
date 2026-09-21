@@ -168,6 +168,7 @@ class MonthlyAvailabilityResponse(BaseModel):
 class AvailabilityExceptionCreate(BaseModel):
     exception_date: date
     is_day_unavailable: bool = False
+    is_available_override: bool = False  # True='가능' 예외, False='불가능' 예외
     unavailable_start: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     unavailable_end: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     memo: Optional[str] = None

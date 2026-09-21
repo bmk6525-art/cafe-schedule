@@ -171,8 +171,10 @@ class AvailabilityException(Base):
     employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False)
     exception_date = Column(Date, nullable=False)
     is_day_unavailable = Column(Boolean, default=False, nullable=False)  # 종일 불가능
-    unavailable_start = Column(String(5), nullable=True)
-    unavailable_end = Column(String(5), nullable=True)
+    # True = '가능' 예외(요일 불가 설정 무시), False = '불가능' 예외(기존 동작)
+    is_available_override = Column(Boolean, default=False, nullable=False, server_default='0')
+    unavailable_start = Column(String(5), nullable=True)  # 불가/가능 시간 시작
+    unavailable_end = Column(String(5), nullable=True)    # 불가/가능 시간 종료
     memo = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

@@ -70,3 +70,42 @@
   border: 1.5px dashed #d0d4f0;
   flex-wrap: wrap;
 }
+
+.ex-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.3px;
+}
+
+.ex-badge--unavail {
+  background: #ffe0e0;
+  color: #c0392b;
+}
+
+.ex-badge--avail {
+  background: #d4f5e9;
+  color: #1a7a4a;
+}
+
+.ex-type-select {
+  padding: 5px 8px;
+  border: 1.5px solid #e0e4f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+
+.ex-type-select:focus { border-color: #4f7cff; }
+
+.ex-avail-hint {
+  font-size: 12px;
+  color: #1a7a4a;
+  background: #d4f5e9;
+  padding: 2px 8px;
+  border-radius: 6px;
+}

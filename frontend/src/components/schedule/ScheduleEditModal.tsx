@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type { Store } from '../../types';
 import { scheduleApi } from '../../services/api';
+import TimeSelect from '../TimeSelect';
 import '../../components/employees/EmployeeModal.css';
 
 interface ScheduleEntry {
@@ -143,11 +144,11 @@ export default function ScheduleEditModal({ schedule, stores, employees = [], de
             <div className="form-row">
               <div className="form-group">
                 <label>시작 시간</label>
-                <input type="time" step="300" name="start_time" value={form.start_time} onChange={handle} />
+                <TimeSelect value={form.start_time} onChange={(v) => { setForm((p) => ({ ...p, start_time: v })); setError(''); }} />
               </div>
               <div className="form-group">
                 <label>종료 시간</label>
-                <input type="time" step="300" name="end_time" value={form.end_time} onChange={handle} />
+                <TimeSelect value={form.end_time} onChange={(v) => { setForm((p) => ({ ...p, end_time: v })); setError(''); }} />
               </div>
             </div>
 

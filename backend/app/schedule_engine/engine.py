@@ -15,13 +15,18 @@ SOFT CONSTRAINT (가능하면 준수):
   2. 파트타이머 목표 근무시간 준수
   3. 파트타이머 선호 매장 반영
   4. 파트타이머 근무시간 균등화
+
+가용성 확인 우선순위:
+  1순위: 특정 날짜 예외 (is_available_override=True → 가능, False → 불가능)
+  2순위: 월별 요일 설정 (MonthlyAvailability)
+  3순위: 기본 가용 + 기존 스케줄 충돌 확인
 """
 
 import calendar
 from collections import defaultdict
 from datetime import date
-from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import update as sa_update
 
 from app.models.models import (
     Employee, EmployeeType, Store, EmployeeWorkPattern,
@@ -56,12 +61,18 @@ class ScheduleEngine:
         end_date = date(year + (1 if month == 12 else 0),
                         1 if month == 12 else month + 1, 1)
 
-        # 기존 DRAFT 스케줄 삭제 (CONFIRMED/LOCKED는 유지)
-        db.query(Schedule).filter(
-            Schedule.work_date >= start_date,
-            Schedule.work_date < end_date,
-            Schedule.status == ScheduleStatus.DRAFT,
-        ).delete()
+        # 기존 DRAFT 스케줄 일괄 삭제 (CONFIRMED/LOCKED는 유지)
+        db.execute(
+            sa_update(Schedule)
+            .where(
+                Schedule.work_date >= start_date,
+                Schedule.work_date < end_date,
+                Schedule.status == ScheduleStatus.DRAFT,
+                Schedule.is_cancelled == False,
+            )
+            .values(is_cancelled=True)
+            .execution_options(synchronize_session=False)
+        )
         db.flush()
 
         # ── 1. 전체 데이터 선로딩 (N+1 제거) ──────────────────────
@@ -109,14 +120,13 @@ class ScheduleEngine:
                     AvailabilityException.exception_date < end_date).all():
                 exc_map[(e.employee_id, e.exception_date)] = e
 
-        # 이미 존재하는 CONFIRMED/LOCKED 스케줄 (삭제 안 한 것들)
+        # 이미 존재하는 CONFIRMED/LOCKED 스케줄
         existing_confirmed = db.query(Schedule).filter(
             Schedule.work_date >= start_date,
             Schedule.work_date < end_date,
             Schedule.is_cancelled == False,
         ).all()
 
-        # 날짜별, (store_id, 날짜)별, (emp_id, 날짜)별 인덱스
         confirmed_by_store_date: dict = defaultdict(list)
         confirmed_by_emp_date: dict = defaultdict(list)
         for s in existing_confirmed:
@@ -130,13 +140,10 @@ class ScheduleEngine:
         warnings = []
         days_in_month = calendar.monthrange(year, month)[1]
 
-        # 중복 방지용 집합: (employee_id, store_id, work_date, start_time, end_time)
         inserted_set: set = set()
-        # 기존 confirmed 스케줄도 집합에 추가
         for s in existing_confirmed:
             inserted_set.add((s.employee_id, s.store_id, s.work_date, s.start_time, s.end_time))
 
-        # 새로 추가된 스케줄을 메모리에서도 추적
         new_by_store_date: dict = defaultdict(list)
         new_by_emp_date: dict = defaultdict(list)
 
@@ -243,15 +250,45 @@ class ScheduleEngine:
             start: str, end: str,
             av_map: dict, exc_map: dict,
             existing_schedules: list) -> bool:
-        """캐시된 데이터로 가용성 확인 (DB 조회 없음)"""
+        """
+        캐시된 데이터로 가용성 확인 (DB 조회 없음)
 
-        # 1. 특정 날짜 예외 우선
+        우선순위:
+          1. 특정 날짜 예외 (is_available_override=True → '가능' 예외, False → '불가능' 예외)
+          2. 월별 요일 설정
+          3. 이미 배정된 스케줄 충돌 (항상 마지막 체크)
+        """
+
+        # 1. 특정 날짜 예외 (최우선)
         exc = exc_map.get((pt.id, work_date))
         if exc:
-            if exc.is_day_unavailable:
-                return False
-            if exc.unavailable_start and exc.unavailable_end:
-                if _overlaps(start, end, exc.unavailable_start, exc.unavailable_end):
+            is_override = getattr(exc, 'is_available_override', False)
+
+            if is_override:
+                # '가능' 예외: 이 날은 기본적으로 가능 (요일 설정 무시)
+                if exc.unavailable_start and exc.unavailable_end:
+                    # 특정 시간대만 가능 — 제안 슬롯이 해당 윈도우 안에 있어야 함
+                    avail_s = _time_to_min(exc.unavailable_start)
+                    avail_e = _time_to_min(exc.unavailable_end)
+                    req_s = _time_to_min(start)
+                    req_e = _time_to_min(end)
+                    if not (req_s >= avail_s and req_e <= avail_e):
+                        return False
+                # 가능 — 요일 설정 건너뜀, 기존 스케줄 충돌만 체크
+            else:
+                # '불가능' 예외
+                if exc.is_day_unavailable:
+                    return False
+                if exc.unavailable_start and exc.unavailable_end:
+                    if _overlaps(start, end, exc.unavailable_start, exc.unavailable_end):
+                        return False
+                # 이 예외가 이 시간대를 제한하지 않음
+
+            # 특정 날짜 예외가 있으면 요일 설정 건너뜀 → 기존 스케줄 충돌만 확인
+            for s in existing_schedules:
+                if getattr(s, 'is_cancelled', False):
+                    continue
+                if _overlaps(start, end, s.start_time, s.end_time):
                     return False
             return True
 
@@ -264,7 +301,7 @@ class ScheduleEngine:
                 if _overlaps(start, end, av.unavailable_start, av.unavailable_end):
                     return False
 
-        # 3. 당일 이미 배정된 스케줄 충돌
+        # 3. 이미 배정된 스케줄 충돌
         for s in existing_schedules:
             if getattr(s, 'is_cancelled', False):
                 continue

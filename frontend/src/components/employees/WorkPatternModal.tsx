@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Employee, Store, WorkPattern, DayOfWeek } from '../../types';
 import { DAY_LABELS, DAY_ORDER } from '../../types';
 import { workPatternApi } from '../../services/api';
+import TimeSelect from '../TimeSelect';
 import './WorkPatternModal.css';
 
 interface Props {
@@ -21,7 +22,7 @@ interface PatternRow {
 function defaultRows(): PatternRow[] {
   return DAY_ORDER.map((day, i) => ({
     day_of_week: day,
-    is_day_off: i >= 5,       // 토·일 기본 휴무
+    is_day_off: i >= 5,
     start_time: '09:00',
     end_time: '18:00',
     store_id: '',
@@ -34,6 +35,7 @@ export default function WorkPatternModal({ employee, stores, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const mouseDownRef = useRef<EventTarget | null>(null);
 
   useEffect(() => {
     workPatternApi.get(employee.id)
@@ -92,7 +94,14 @@ export default function WorkPatternModal({ employee, stores, onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => { mouseDownRef.current = e.target; }}
+      onClick={(e) => {
+        if (mouseDownRef.current === e.currentTarget) onClose();
+        mouseDownRef.current = null;
+      }}
+    >
       <div className="modal modal--wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
@@ -135,19 +144,17 @@ export default function WorkPatternModal({ employee, stores, onClose }: Props) {
                       </label>
                     </td>
                     <td>
-                      <input
-                        type="time" step="300" className="wp-time-input"
+                      <TimeSelect
                         value={row.start_time}
                         disabled={row.is_day_off}
-                        onChange={(e) => updateRow(row.day_of_week, 'start_time', e.target.value)}
+                        onChange={(v) => updateRow(row.day_of_week, 'start_time', v)}
                       />
                     </td>
                     <td>
-                      <input
-                        type="time" step="300" className="wp-time-input"
+                      <TimeSelect
                         value={row.end_time}
                         disabled={row.is_day_off}
-                        onChange={(e) => updateRow(row.day_of_week, 'end_time', e.target.value)}
+                        onChange={(v) => updateRow(row.day_of_week, 'end_time', v)}
                       />
                     </td>
                     <td>

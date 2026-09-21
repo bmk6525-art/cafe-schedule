@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import update as sa_update, text
 from typing import List, Optional
 from datetime import date
 import json
@@ -134,32 +135,42 @@ def generate_schedule(year: int, month: int, db: Session = Depends(get_db)):
         _generating_months.discard(lock_key)
 
 
-# ── 중복 스케줄 정리 ──
+# ── 중복 스케줄 정리 (Bulk SQL — 대량 데이터 최적화) ──
 
 @router.post("/deduplicate", response_model=dict)
 def deduplicate_schedules(year: int, month: int, db: Session = Depends(get_db)):
-    """동일 월의 중복 DRAFT 스케줄 정리 (CONFIRMED/LOCKED 보호)"""
+    """동일 월의 중복 DRAFT 스케줄 정리 (CONFIRMED/LOCKED 보호)
+    중복 판정: (employee_id, store_id, work_date, start_time, end_time) 동일한 DRAFT 중 MIN(id) 유지
+    """
     start = date(year, month, 1)
     end = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+    s_iso, e_iso = start.isoformat(), end.isoformat()
 
-    schedules = db.query(Schedule).filter(
-        Schedule.work_date >= start,
-        Schedule.work_date < end,
-        Schedule.is_cancelled == False,
-        Schedule.status == ScheduleStatus.DRAFT,
-    ).order_by(Schedule.id).all()
+    # 정리 전 총 DRAFT 수
+    before_count = db.execute(text(
+        "SELECT COUNT(*) FROM schedules "
+        "WHERE work_date >= :s AND work_date < :e "
+        "AND is_cancelled = 0 AND status = 'DRAFT'"
+    ), {'s': s_iso, 'e': e_iso}).scalar() or 0
 
-    seen: set = set()
-    removed = 0
-    for s in schedules:
-        key = (s.employee_id, s.store_id, s.work_date, s.start_time, s.end_time)
-        if key in seen:
-            s.is_cancelled = True
-            removed += 1
-        else:
-            seen.add(key)
+    if before_count == 0:
+        return {'message': '정리할 중복 스케줄이 없습니다.', 'removed': 0, 'success': True}
 
+    # 중복 제거: 각 그룹에서 MIN(id)만 유지, 나머지 is_cancelled=1
+    result = db.execute(text(
+        "UPDATE schedules SET is_cancelled = 1 "
+        "WHERE work_date >= :s AND work_date < :e "
+        "AND is_cancelled = 0 AND status = 'DRAFT' "
+        "AND id NOT IN ("
+        "  SELECT MIN(id) FROM schedules "
+        "  WHERE work_date >= :s AND work_date < :e "
+        "  AND is_cancelled = 0 AND status = 'DRAFT' "
+        "  GROUP BY employee_id, store_id, work_date, start_time, end_time"
+        ")"
+    ), {'s': s_iso, 'e': e_iso})
+    removed = result.rowcount
     db.commit()
+
     return {
         'message': f"중복 스케줄 {removed}개가 정리되었습니다.",
         'removed': removed,
@@ -167,7 +178,7 @@ def deduplicate_schedules(year: int, month: int, db: Session = Depends(get_db)):
     }
 
 
-# ── 전체 삭제 ──
+# ── 전체 삭제 (Bulk SQL — 대량 데이터 최적화) ──
 
 @router.delete("/bulk", response_model=dict)
 def bulk_delete_schedules(
@@ -175,23 +186,35 @@ def bulk_delete_schedules(
     include_confirmed: bool = False,
     db: Session = Depends(get_db)
 ):
-    """선택한 월의 스케줄 일괄 삭제"""
+    """선택한 월의 DRAFT 스케줄 일괄 삭제 (CONFIRMED/LOCKED는 기본 보호)"""
     start = date(year, month, 1)
     end = date(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
 
-    q = db.query(Schedule).filter(
-        Schedule.work_date >= start,
-        Schedule.work_date < end,
-        Schedule.is_cancelled == False,
-    )
-    if not include_confirmed:
-        q = q.filter(Schedule.status == ScheduleStatus.DRAFT)
+    if include_confirmed:
+        result = db.execute(
+            sa_update(Schedule)
+            .where(
+                Schedule.work_date >= start,
+                Schedule.work_date < end,
+                Schedule.is_cancelled == False,
+            )
+            .values(is_cancelled=True)
+            .execution_options(synchronize_session=False)
+        )
+    else:
+        result = db.execute(
+            sa_update(Schedule)
+            .where(
+                Schedule.work_date >= start,
+                Schedule.work_date < end,
+                Schedule.is_cancelled == False,
+                Schedule.status == ScheduleStatus.DRAFT,
+            )
+            .values(is_cancelled=True)
+            .execution_options(synchronize_session=False)
+        )
 
-    schedules = q.all()
-    count = len(schedules)
-    for s in schedules:
-        s.is_cancelled = True
-
+    count = result.rowcount
     db.commit()
     scope = "전체" if include_confirmed else "DRAFT"
     return {

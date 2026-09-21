@@ -14,10 +14,27 @@ from app.database.database import init_db
 from app.api.v1 import employees, stores, work_patterns, availability, staff_requirements, schedules, payroll, monthly, history, dashboard
 
 
+def _run_migrations():
+    """기존 DB에 누락된 컬럼 추가 (SQLite ALTER TABLE)"""
+    from sqlalchemy import text, inspect as sa_inspect
+    from app.database.database import engine as _engine
+    insp = sa_inspect(_engine)
+    if 'availability_exceptions' in insp.get_table_names():
+        cols = {c['name'] for c in insp.get_columns('availability_exceptions')}
+        if 'is_available_override' not in cols:
+            with _engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE availability_exceptions "
+                    "ADD COLUMN is_available_override BOOLEAN NOT NULL DEFAULT 0"
+                ))
+                conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """앱 시작 시 DB 초기화"""
+    """앱 시작 시 DB 초기화 및 마이그레이션"""
     init_db()
+    _run_migrations()
     yield
 
 
