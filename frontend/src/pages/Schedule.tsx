@@ -331,7 +331,9 @@ export default function Schedule() {
             <div className="cal-capture-title">{year}년 {month}월 근무 스케줄</div>
             {stores.length > 0 && (
               <div className="cal-capture-stores">
-                ({stores.map((s) => s.name).join(' · ')})
+                {['ALL','REGULAR','PART_TIMER'].includes(filter)
+                  ? `(${stores.map((s) => s.name).join(' · ')})`
+                  : `(${filter})`}
               </div>
             )}
           <div className="cal-grid">
