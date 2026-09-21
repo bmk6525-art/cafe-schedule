@@ -15,19 +15,37 @@ from app.api.v1 import employees, stores, work_patterns, availability, staff_req
 
 
 def _run_migrations():
-    """기존 DB에 누락된 컬럼 추가 (SQLite ALTER TABLE)"""
+    """기존 DB에 누락된 컬럼·인덱스 추가"""
     from sqlalchemy import text, inspect as sa_inspect
     from app.database.database import engine as _engine
     insp = sa_inspect(_engine)
-    if 'availability_exceptions' in insp.get_table_names():
-        cols = {c['name'] for c in insp.get_columns('availability_exceptions')}
-        if 'is_available_override' not in cols:
-            with _engine.connect() as conn:
+
+    with _engine.connect() as conn:
+        # is_available_override 컬럼 추가 (이전 마이그레이션)
+        if 'availability_exceptions' in insp.get_table_names():
+            cols = {c['name'] for c in insp.get_columns('availability_exceptions')}
+            if 'is_available_override' not in cols:
                 conn.execute(text(
                     "ALTER TABLE availability_exceptions "
                     "ADD COLUMN is_available_override BOOLEAN NOT NULL DEFAULT 0"
                 ))
-                conn.commit()
+
+        # schedules 성능 인덱스 추가 — 풀스캔 방지
+        if 'schedules' in insp.get_table_names():
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_schedules_date_status "
+                "ON schedules (work_date, is_cancelled, status)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_schedules_emp_date "
+                "ON schedules (employee_id, work_date)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_schedules_store_date "
+                "ON schedules (store_id, work_date)"
+            ))
+
+        conn.commit()
 
 
 @asynccontextmanager

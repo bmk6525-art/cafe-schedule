@@ -11,7 +11,7 @@ import enum
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, Boolean, Float, DateTime,
-    ForeignKey, Enum as SAEnum, Text, Date, UniqueConstraint
+    ForeignKey, Enum as SAEnum, Text, Date, UniqueConstraint, Index
 )
 from sqlalchemy.orm import relationship
 from app.database.database import Base
@@ -227,6 +227,14 @@ class Schedule(Base):
     memo = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        # 월별 조회·삭제·중복정리 쿼리 핵심 인덱스
+        Index('ix_schedules_date_status', 'work_date', 'is_cancelled', 'status'),
+        # 직원별·매장별 조회용
+        Index('ix_schedules_emp_date', 'employee_id', 'work_date'),
+        Index('ix_schedules_store_date', 'store_id', 'work_date'),
+    )
 
     # Relationships
     employee = relationship("Employee", back_populates="schedules")
