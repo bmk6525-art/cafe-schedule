@@ -26,7 +26,7 @@ import calendar
 from collections import defaultdict
 from datetime import date
 from sqlalchemy.orm import Session
-from sqlalchemy import update as sa_update
+from sqlalchemy import update as sa_update, insert as sa_insert
 
 from app.models.models import (
     Employee, EmployeeType, Store, EmployeeWorkPattern,
@@ -48,6 +48,15 @@ def _min_to_time(m: int) -> str:
 
 def _overlaps(s1: str, e1: str, s2: str, e2: str) -> bool:
     return _time_to_min(s1) < _time_to_min(e2) and _time_to_min(s2) < _time_to_min(e1)
+
+
+class _Slot:
+    """DB 저장 전 in-memory 겹침 체크용 경량 객체"""
+    __slots__ = ('start_time', 'end_time', 'is_cancelled')
+    def __init__(self, start_time: str, end_time: str):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.is_cancelled = False
 
 
 class ScheduleEngine:
@@ -144,6 +153,8 @@ class ScheduleEngine:
         for s in existing_confirmed:
             inserted_set.add((s.employee_id, s.store_id, s.work_date, s.start_time, s.end_time))
 
+        # DB INSERT 대신 메모리에 누적 후 한 번에 bulk insert
+        new_rows: list = []
         new_by_store_date: dict = defaultdict(list)
         new_by_emp_date: dict = defaultdict(list)
 
@@ -165,15 +176,16 @@ class ScheduleEngine:
                     continue
                 inserted_set.add(dup_key)
 
-                s = Schedule(
-                    employee_id=emp.id, store_id=store.id,
-                    work_date=work_date,
-                    start_time=pattern.start_time, end_time=pattern.end_time,
-                    break_minutes=60, status=ScheduleStatus.DRAFT,
-                )
-                db.add(s)
-                new_by_store_date[(store.id, work_date)].append(s)
-                new_by_emp_date[(emp.id, work_date)].append(s)
+                slot = _Slot(pattern.start_time, pattern.end_time)
+                new_by_store_date[(store.id, work_date)].append(slot)
+                new_by_emp_date[(emp.id, work_date)].append(slot)
+                new_rows.append({
+                    'employee_id': emp.id, 'store_id': store.id,
+                    'work_date': work_date,
+                    'start_time': pattern.start_time, 'end_time': pattern.end_time,
+                    'break_minutes': 60, 'status': ScheduleStatus.DRAFT,
+                    'is_cancelled': False, 'memo': None,
+                })
                 created += 1
 
             # ── 파트타이머 배정 ──
@@ -219,15 +231,16 @@ class ScheduleEngine:
                             continue
                         inserted_set.add(dup_key)
 
-                        s = Schedule(
-                            employee_id=pt.id, store_id=store.id,
-                            work_date=work_date,
-                            start_time=req.start_time, end_time=req.end_time,
-                            break_minutes=0, status=ScheduleStatus.DRAFT,
-                        )
-                        db.add(s)
-                        new_by_emp_date[(pt.id, work_date)].append(s)
-                        new_by_store_date[(store.id, work_date)].append(s)
+                        slot = _Slot(req.start_time, req.end_time)
+                        new_by_emp_date[(pt.id, work_date)].append(slot)
+                        new_by_store_date[(store.id, work_date)].append(slot)
+                        new_rows.append({
+                            'employee_id': pt.id, 'store_id': store.id,
+                            'work_date': work_date,
+                            'start_time': req.start_time, 'end_time': req.end_time,
+                            'break_minutes': 0, 'status': ScheduleStatus.DRAFT,
+                            'is_cancelled': False, 'memo': None,
+                        })
                         hours = (_time_to_min(req.end_time) - _time_to_min(req.start_time)) / 60
                         pt_hours[pt.id] += hours
                         created += 1
@@ -239,6 +252,9 @@ class ScheduleEngine:
                             f"필요 {req.required_count}명 중 {covered + assigned}명만 배정됨"
                         )
 
+        # ── 3. 일괄 INSERT (DB 쓰기 1회) ────────────────────────
+        if new_rows:
+            db.execute(sa_insert(Schedule), new_rows)
         db.commit()
         return {'created': created, 'warnings': warnings}
 
@@ -252,7 +268,7 @@ class ScheduleEngine:
 
         우선순위:
           1. 특정 날짜 예외 (is_available_override=True → '가능' 예외, False → '불가능' 예외)
-          2. 월별 요일 설정
+          2. 월별 요일 기본 설정
           3. 이미 배정된 스케줄 충돌 (항상 마지막 체크)
         """
 

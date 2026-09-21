@@ -120,7 +120,11 @@
 .cal-capture { background:#fff; border-radius:14px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
 .cal-capture-title {
   font-size:16px; font-weight:700; color:#1a1d2e;
-  text-align:center; margin-bottom:12px; letter-spacing:0.5px;
+  text-align:center; margin-bottom:4px; letter-spacing:0.5px;
+}
+.cal-capture-stores {
+  font-size:13px; font-weight:600; color:#4f7cff;
+  text-align:center; margin-bottom:12px; letter-spacing:0.3px;
 }
 
 .cal-grid {
@@ -162,19 +166,19 @@
   display:flex; align-items:center; justify-content:center;
 }
 
-.cal-chips { display:flex; flex-direction:column; gap:3px; }
+.cal-chips { display:flex; flex-direction:column; gap:2px; }
 .cal-chip {
-  font-size:10px; font-weight:600; padding:3px 5px;
+  font-size:10px; font-weight:600; padding:2px 5px;
   border-radius:4px; background:#e8f0ff; color:#3a65e8;
-  display:flex; flex-direction:column; gap:1px;
+  display:flex; flex-direction:row; align-items:center; gap:3px;
+  white-space:nowrap; overflow:hidden;
 }
-.cal-chip-top { display:flex; align-items:center; gap:3px; }
-.cal-chip-top em { font-style:normal; font-weight:700; opacity:0.75; }
-.cal-chip-time { font-size:9px; font-weight:700; opacity:0.85; letter-spacing:-0.2px; }
+.cal-chip-name { font-weight:700; flex-shrink:0; }
+.cal-chip-sep { opacity:0.4; flex-shrink:0; }
+.cal-chip-time { font-size:9px; font-weight:600; opacity:0.85; letter-spacing:-0.2px; flex-shrink:0; }
 .cal-chip--regular { background:#e8f0ff; color:#3a65e8; }
 .cal-chip--part { background:#fff3e0; color:#c06000; }
 .cal-chip--confirmed { opacity:0.8; }
-.cal-chip--more { background:#f0f2fa; color:#8b8fa8; flex-direction:row; font-size:10px; }
 .cal-chip--clickable { cursor:pointer; }
 .cal-chip--clickable:hover { filter:brightness(0.92); outline:1.5px solid rgba(0,0,0,0.15); }
 

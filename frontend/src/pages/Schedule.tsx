@@ -329,6 +329,11 @@ export default function Schedule() {
           </div>
           <div ref={calRef} className="cal-capture">
             <div className="cal-capture-title">{year}년 {month}월 근무 스케줄</div>
+            {stores.length > 0 && (
+              <div className="cal-capture-stores">
+                ({stores.map((s) => s.name).join(' · ')})
+              </div>
+            )}
           <div className="cal-grid">
             {/* 요일 헤더 */}
             {DAY_HEADER.map((d, i) => (
@@ -351,19 +356,17 @@ export default function Schedule() {
                   >
                     <div className="cal-day-num">{day}</div>
                     <div className="cal-chips">
-                      {daySchedules.slice(0, 4).map(s => (
+                      {daySchedules.map(s => (
                         <div key={s.id}
                           className={`cal-chip ${s.employee_type==='REGULAR'?'cal-chip--regular':'cal-chip--part'} ${s.status==='CONFIRMED'?'cal-chip--confirmed':''} ${s.status!=='LOCKED'?'cal-chip--clickable':''}`}
                           onClick={(e) => { if (s.status !== 'LOCKED') { e.stopPropagation(); setEditTarget(s); } }}
                           title={s.status !== 'LOCKED' ? '클릭하여 수정' : '잠금된 스케줄'}
                         >
-                          <span className="cal-chip-top">{s.employee_name} <em>{s.store_name}</em></span>
+                          <span className="cal-chip-name">{s.employee_name}</span>
+                          <span className="cal-chip-sep">—</span>
                           <span className="cal-chip-time">{s.start_time.slice(0,5)}~{s.end_time.slice(0,5)}</span>
                         </div>
                       ))}
-                      {daySchedules.length > 4 && (
-                        <div className="cal-chip cal-chip--more">+{daySchedules.length - 4}명</div>
-                      )}
                     </div>
                   </div>
                 );
