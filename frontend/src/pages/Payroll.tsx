@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useMonth } from '../context/MonthContext';
 import { payrollApi } from '../services/api';
 import './Payroll.css';
 
@@ -20,9 +21,7 @@ interface PayrollRow {
 interface StoreSum { store_id: number; store_name: string; total_cost: number; }
 
 export default function Payroll() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const { year, month } = useMonth();
   const [rows, setRows] = useState<PayrollRow[]>([]);
   const [storeSums, setStoreSums] = useState<StoreSum[]>([]);
   const [selected, setSelected] = useState<PayrollRow | null>(null);
@@ -119,12 +118,6 @@ export default function Payroll() {
           <p className="page-subtitle">파트타이머 급여 및 주휴수당 · 실제 근무시간 기준</p>
         </div>
         <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
-          <select value={year} onChange={e=>setYear(Number(e.target.value))} className="emp-month-select">
-            {[year-1,year,year+1].map(y=><option key={y} value={y}>{y}년</option>)}
-          </select>
-          <select value={month} onChange={e=>setMonth(Number(e.target.value))} className="emp-month-select">
-            {Array.from({length:12},(_,i)=>i+1).map(m=><option key={m} value={m}>{m}월</option>)}
-          </select>
           {isFinalized ? (
             <span className="pay-finalized-badge">✅ 급여 확정됨</span>
           ) : (

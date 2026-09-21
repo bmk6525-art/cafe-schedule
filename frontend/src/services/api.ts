@@ -99,6 +99,8 @@ export const availabilityApi = {
     api.post('/employees/availability/bulk-copy', null, {
       params: { from_year: fromYear, from_month: fromMonth, to_year: toYear, to_month: toMonth },
     }),
+  getStatus: (year: number, month: number) =>
+    api.get('/employees/availability-status', { params: { year, month } }),
 };
 
 // Work Pattern API

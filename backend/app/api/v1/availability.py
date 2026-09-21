@@ -18,6 +18,15 @@ DAY_ORDER = [DayOfWeek.MON, DayOfWeek.TUE, DayOfWeek.WED,
              DayOfWeek.THU, DayOfWeek.FRI, DayOfWeek.SAT, DayOfWeek.SUN]
 
 
+@router.get("/availability-status")
+def get_availability_status(year: int, month: int, db: Session = Depends(get_db)):
+    """월별 불가능시간 입력 현황 — 입력한 파트타이머 ID 목록 반환"""
+    ids = (db.query(MonthlyAvailability.employee_id)
+           .filter_by(year=year, month=month)
+           .distinct().all())
+    return {'employee_ids': [r[0] for r in ids]}
+
+
 def _check_part_timer(employee_id: int, db: Session) -> Employee:
     emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Employee, Store } from '../types';
 import { employeeApi, storeApi, availabilityApi } from '../services/api';
+import { useMonth } from '../context/MonthContext';
 import EmployeeModal from '../components/employees/EmployeeModal';
 import WorkPatternModal from '../components/employees/WorkPatternModal';
 import AvailabilityModal from '../components/employees/AvailabilityModal';
@@ -9,6 +10,8 @@ import './Employees.css';
 type FilterType = 'ALL' | 'REGULAR' | 'PART_TIMER';
 
 export default function Employees() {
+  const { year: avYear, month: avMonth } = useMonth();
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,13 +19,21 @@ export default function Employees() {
   const [filterType, setFilterType] = useState<FilterType>('ALL');
   const [showInactive, setShowInactive] = useState(false);
 
-  // 모달 상태
-  const now = new Date();
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const [avYear, setAvYear] = useState(nextMonth.getFullYear());
-  const [avMonth, setAvMonth] = useState(nextMonth.getMonth() + 1);
+  // 직원 순서 (localStorage 영속)
+  const [orderIds, setOrderIds] = useState<number[]>(() => {
+    try {
+      const s = localStorage.getItem('cafe_emp_order');
+      return s ? JSON.parse(s) : [];
+    } catch { return []; }
+  });
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
+
+  // 불가능시간 입력 현황
+  const [availStatusIds, setAvailStatusIds] = useState<number[]>([]);
 
   // 불가능시간 일괄 복사 상태
+  const now = new Date();
   const [bulkCopyFromYear, setBulkCopyFromYear] = useState(now.getFullYear());
   const [bulkCopyFromMonth, setBulkCopyFromMonth] = useState(now.getMonth() + 1);
   const [bulkCopying, setBulkCopying] = useState(false);
@@ -31,16 +42,14 @@ export default function Employees() {
   const [patternTarget, setPatternTarget] = useState<Employee | null>(null);
   const [avTarget, setAvTarget] = useState<Employee | null>(null);
 
-  // 비활성화 / 활성화 확인 상태
   const [deactivateTarget, setDeactivateTarget] = useState<Employee | null>(null);
   const [deactivating, setDeactivating] = useState(false);
   const [activating, setActivating] = useState(false);
   const [hardDeleteTarget, setHardDeleteTarget] = useState<Employee | null>(null);
   const [hardDeleting, setHardDeleting] = useState(false);
 
-  useEffect(() => {
-    loadAll();
-  }, [showInactive]);
+  useEffect(() => { loadAll(); }, [showInactive]);
+  useEffect(() => { loadAvailStatus(); }, [avYear, avMonth]);
 
   async function loadAll() {
     setLoading(true);
@@ -56,18 +65,74 @@ export default function Employees() {
     }
   }
 
+  async function loadAvailStatus() {
+    try {
+      const res = await availabilityApi.getStatus(avYear, avMonth);
+      setAvailStatusIds(res.data.employee_ids || []);
+    } catch {
+      setAvailStatusIds([]);
+    }
+  }
+
   function getStoreName(id?: number | null) {
     if (!id) return '-';
     return stores.find((s) => s.id === id)?.name ?? '-';
   }
 
+  // 전체 직원 순서 적용
+  const orderedEmployees = useMemo(() => {
+    if (orderIds.length === 0) return employees;
+    return [...employees].sort((a, b) => {
+      const ai = orderIds.indexOf(a.id);
+      const bi = orderIds.indexOf(b.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [employees, orderIds]);
+
   const filtered = useMemo(() => {
-    return employees.filter((e) => {
+    return orderedEmployees.filter((e) => {
       const matchType = filterType === 'ALL' || e.employee_type === filterType;
       const matchSearch = e.name.includes(search.trim());
       return matchType && matchSearch;
     });
-  }, [employees, filterType, search]);
+  }, [orderedEmployees, filterType, search]);
+
+  // 드래그 핸들러
+  function handleDragStart(e: React.DragEvent, id: number) {
+    setDragId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragOver(e: React.DragEvent, id: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverId !== id) setDragOverId(id);
+  }
+
+  function handleDrop(targetId: number) {
+    if (dragId === null || dragId === targetId) {
+      setDragId(null); setDragOverId(null); return;
+    }
+    const allIds = orderedEmployees.map((e) => e.id);
+    const fromIdx = allIds.indexOf(dragId);
+    const toIdx = allIds.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) {
+      setDragId(null); setDragOverId(null); return;
+    }
+    const newIds = [...allIds];
+    newIds.splice(fromIdx, 1);
+    newIds.splice(toIdx, 0, dragId);
+    setOrderIds(newIds);
+    localStorage.setItem('cafe_emp_order', JSON.stringify(newIds));
+    setDragId(null); setDragOverId(null);
+  }
+
+  function handleDragEnd() {
+    setDragId(null); setDragOverId(null);
+  }
 
   async function handleDeactivate() {
     if (!deactivateTarget) return;
@@ -110,6 +175,7 @@ export default function Employees() {
     try {
       const res = await availabilityApi.bulkCopy(bulkCopyFromYear, bulkCopyFromMonth, avYear, avMonth);
       alert(res.data.message);
+      await loadAvailStatus();
     } catch (e: any) {
       alert(`복사 오류: ${e.message}`);
     } finally {
@@ -135,19 +201,10 @@ export default function Employees() {
         </button>
       </div>
 
-      {/* 월 선택 (파트타이머 불가능시간용) */}
+      {/* 기준 월 표시 + 불가능시간 일괄 복사 */}
       <div className="emp-month-bar">
-        <span className="emp-month-label">불가능시간 설정 기준 월:</span>
-        <select value={avYear} onChange={(e) => setAvYear(Number(e.target.value))} className="emp-month-select">
-          {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
-            <option key={y} value={y}>{y}년</option>
-          ))}
-        </select>
-        <select value={avMonth} onChange={(e) => setAvMonth(Number(e.target.value))} className="emp-month-select">
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={m}>{m}월</option>
-          ))}
-        </select>
+        <span className="emp-month-label">불가능시간 기준 월:</span>
+        <span className="emp-month-cur">{avYear}년 {avMonth}월</span>
         <span className="emp-month-label" style={{marginLeft:16}}>다른 달에서 불러오기:</span>
         <select value={bulkCopyFromYear} onChange={(e) => setBulkCopyFromYear(Number(e.target.value))} className="emp-month-select">
           {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
@@ -207,8 +264,10 @@ export default function Employees() {
           <table className="emp-table">
             <thead>
               <tr>
+                <th className="emp-drag-th"></th>
                 <th>이름</th>
                 <th>구분</th>
+                <th>불가능시간</th>
                 <th>시급</th>
                 <th>선호 매장</th>
                 <th>입사일</th>
@@ -218,12 +277,34 @@ export default function Employees() {
             </thead>
             <tbody>
               {filtered.map((emp) => (
-                <tr key={emp.id} className={!emp.is_active ? 'emp-row--inactive' : ''}>
+                <tr
+                  key={emp.id}
+                  className={[
+                    !emp.is_active ? 'emp-row--inactive' : '',
+                    dragId === emp.id ? 'emp-row--dragging' : '',
+                    dragOverId === emp.id && dragId !== emp.id ? 'emp-row--dragover' : '',
+                  ].filter(Boolean).join(' ')}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, emp.id)}
+                  onDragOver={(e) => handleDragOver(e, emp.id)}
+                  onDrop={() => handleDrop(emp.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <td className="emp-drag-cell">☰</td>
                   <td className="emp-name">{emp.name}</td>
                   <td>
                     <span className={`type-badge ${emp.employee_type === 'REGULAR' ? 'type-badge--regular' : 'type-badge--part'}`}>
                       {emp.employee_type === 'REGULAR' ? '정규직' : '파트타이머'}
                     </span>
+                  </td>
+                  <td>
+                    {emp.employee_type === 'PART_TIMER' && emp.is_active ? (
+                      <span className={`av-badge ${availStatusIds.includes(emp.id) ? 'av-badge--ok' : 'av-badge--missing'}`}>
+                        {availStatusIds.includes(emp.id) ? '입력' : '미입력'}
+                      </span>
+                    ) : (
+                      <span className="emp-dash">—</span>
+                    )}
                   </td>
                   <td className="emp-wage">{emp.hourly_wage.toLocaleString()}원</td>
                   <td>{getStoreName(emp.preferred_store_id)}</td>
@@ -298,7 +379,7 @@ export default function Employees() {
         />
       )}
 
-      {/* 비활성화 확인 다이얼로그 */}
+      {/* 비활성화 확인 */}
       {deactivateTarget && (
         <div className="modal-backdrop" onClick={() => setDeactivateTarget(null)}>
           <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
@@ -317,7 +398,7 @@ export default function Employees() {
         </div>
       )}
 
-      {/* 영구 삭제 확인 다이얼로그 */}
+      {/* 영구 삭제 확인 */}
       {hardDeleteTarget && (
         <div className="modal-backdrop" onClick={() => setHardDeleteTarget(null)}>
           <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>

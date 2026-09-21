@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useMonth } from '../context/MonthContext';
 import html2canvas from 'html2canvas';
 import { scheduleApi, storeApi, employeeApi } from '../services/api';
 import type { Store } from '../types';
@@ -43,9 +44,7 @@ function buildCalendarGrid(year: number, month: number) {
 }
 
 export default function Schedule() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const { year, month } = useMonth();
   const [week, setWeek] = useState(1);
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('month');
@@ -216,12 +215,6 @@ export default function Schedule() {
           <p className="page-subtitle">{year}년 {month}월 · 총 {schedules.length}건</p>
         </div>
         <div className="sch-header-actions">
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="emp-month-select">
-            {[year-1, year, year+1].map((y) => <option key={y} value={y}>{y}년</option>)}
-          </select>
-          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="emp-month-select">
-            {Array.from({length:12},(_,i)=>i+1).map((m) => <option key={m} value={m}>{m}월</option>)}
-          </select>
           <button className="btn btn--secondary" onClick={() => { setAddDefaultDate(''); setEditTarget('new'); }}>
             + 스케줄 추가
           </button>

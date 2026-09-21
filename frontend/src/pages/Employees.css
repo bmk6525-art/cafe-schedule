@@ -116,6 +116,49 @@
 .emp-table tr:hover td { background: #fafbff; }
 
 .emp-row--inactive td { opacity: 0.5; }
+.emp-row--dragging { opacity: 0.4; }
+.emp-row--dragging td { background: #f0f4ff !important; }
+.emp-row--dragover td { background: #dde8ff !important; }
+
+.emp-month-cur {
+  font-weight: 700;
+  color: #3a65e8;
+  background: #e8f0ff;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.emp-drag-th {
+  width: 28px;
+  padding: 12px 8px !important;
+  text-align: center;
+}
+
+.emp-drag-cell {
+  width: 28px;
+  padding: 8px !important;
+  text-align: center;
+  color: #c8cad8;
+  font-size: 16px;
+  cursor: grab;
+  user-select: none;
+}
+
+.emp-drag-cell:active { cursor: grabbing; }
+
+.emp-dash { color: #c8cad8; font-size: 13px; }
+
+.av-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.av-badge--ok      { background: #e6f9f0; color: #1a7a4a; }
+.av-badge--missing { background: #fdeaea; color: #c0392b; }
 
 .emp-name { font-weight: 600; color: #1a1d2e; }
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { useMonth } from '../context/MonthContext';
 import './MainLayout.css';
 
 const NAV_ITEMS = [
@@ -15,10 +16,11 @@ const NAV_ITEMS = [
 
 export default function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { year, month, setYearMonth } = useMonth();
+  const curYear = new Date().getFullYear();
 
   return (
     <div className="app-layout">
-      {/* 모바일 오버레이 */}
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
       )}
@@ -44,6 +46,27 @@ export default function MainLayout() {
             </NavLink>
           ))}
         </nav>
+        <div className="sidebar-month">
+          <p className="sidebar-month-label">기준 월</p>
+          <div className="sidebar-month-selects">
+            <select
+              value={year}
+              onChange={(e) => setYearMonth(Number(e.target.value), month)}
+            >
+              {[curYear - 1, curYear, curYear + 1].map((y) => (
+                <option key={y} value={y}>{y}년</option>
+              ))}
+            </select>
+            <select
+              value={month}
+              onChange={(e) => setYearMonth(year, Number(e.target.value))}
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>{m}월</option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div className="sidebar-footer">
           <p>PHASE 14 완료 · v1.0.0</p>
         </div>

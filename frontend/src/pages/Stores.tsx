@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useMonth } from '../context/MonthContext';
 import type { Store } from '../types';
 import { storeApi, requirementsApi } from '../services/api';
 import StoreModal from '../components/stores/StoreModal';
@@ -10,9 +11,7 @@ export default function Stores() {
   const [loading, setLoading] = useState(true);
   const [showInactive, setShowInactive] = useState(false);
   const now = new Date();
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const [reqYear, setReqYear] = useState(nextMonth.getFullYear());
-  const [reqMonth, setReqMonth] = useState(nextMonth.getMonth() + 1);
+  const { year: reqYear, month: reqMonth } = useMonth();
   const [reqTarget, setReqTarget] = useState<Store | null>(null);
 
   // 필요인원 일괄 복사 상태
@@ -116,16 +115,9 @@ export default function Stores() {
       {/* 월 선택 */}
       <div className="emp-month-bar">
         <span className="emp-month-label">필요인원 설정 기준 월:</span>
-        <select value={reqYear} onChange={(e) => setReqYear(Number(e.target.value))} className="emp-month-select">
-          {[now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map((y) => (
-            <option key={y} value={y}>{y}년</option>
-          ))}
-        </select>
-        <select value={reqMonth} onChange={(e) => setReqMonth(Number(e.target.value))} className="emp-month-select">
-          {Array.from({length:12},(_,i)=>i+1).map((m) => (
-            <option key={m} value={m}>{m}월</option>
-          ))}
-        </select>
+        <span style={{fontWeight:700, color:'#3a65e8', background:'#e8f0ff', padding:'3px 10px', borderRadius:'6px', fontSize:'13px'}}>
+          {reqYear}년 {reqMonth}월
+        </span>
         <span className="emp-month-label" style={{marginLeft:16}}>다른 달에서 불러오기:</span>
         <select value={bulkCopyFromYear} onChange={(e) => setBulkCopyFromYear(Number(e.target.value))} className="emp-month-select">
           {[now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map((y) => (
