@@ -176,8 +176,6 @@ class ScheduleEngine:
                 new_by_emp_date[(emp.id, work_date)].append(s)
                 created += 1
 
-            db.flush()
-
             # ── 파트타이머 배정 ──
             for store in stores:
                 reqs = reqs_map.get((store.id, dow), [])
@@ -228,7 +226,6 @@ class ScheduleEngine:
                             break_minutes=0, status=ScheduleStatus.DRAFT,
                         )
                         db.add(s)
-                        db.flush()
                         new_by_emp_date[(pt.id, work_date)].append(s)
                         new_by_store_date[(store.id, work_date)].append(s)
                         hours = (_time_to_min(req.end_time) - _time_to_min(req.start_time)) / 60

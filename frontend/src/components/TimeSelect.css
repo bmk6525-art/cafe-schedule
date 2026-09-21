@@ -31,9 +31,10 @@
   color: #2d2e3e;
   cursor: pointer;
   outline: none;
-  padding: 2px 1px;
+  padding: 2px 4px;
   text-align: center;
-  width: 32px;
+  text-align-last: center;
+  width: 44px;
 }
 
 .time-select__hour:focus,
