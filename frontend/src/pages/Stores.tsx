@@ -10,8 +10,9 @@ export default function Stores() {
   const [loading, setLoading] = useState(true);
   const [showInactive, setShowInactive] = useState(false);
   const now = new Date();
-  const [reqYear, setReqYear] = useState(now.getFullYear());
-  const [reqMonth, setReqMonth] = useState(now.getMonth() + 1);
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const [reqYear, setReqYear] = useState(nextMonth.getFullYear());
+  const [reqMonth, setReqMonth] = useState(nextMonth.getMonth() + 1);
   const [reqTarget, setReqTarget] = useState<Store | null>(null);
 
   const [editTarget, setEditTarget] = useState<Store | null | 'new'>(null);

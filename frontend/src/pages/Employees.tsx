@@ -18,8 +18,9 @@ export default function Employees() {
 
   // 모달 상태
   const now = new Date();
-  const [avYear, setAvYear] = useState(now.getFullYear());
-  const [avMonth, setAvMonth] = useState(now.getMonth() + 1);
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const [avYear, setAvYear] = useState(nextMonth.getFullYear());
+  const [avMonth, setAvMonth] = useState(nextMonth.getMonth() + 1);
 
   const [editTarget, setEditTarget] = useState<Employee | null | 'new'>(null);
   const [patternTarget, setPatternTarget] = useState<Employee | null>(null);

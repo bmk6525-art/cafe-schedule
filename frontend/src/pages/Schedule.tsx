@@ -87,6 +87,8 @@ export default function Schedule() {
       const res = await scheduleApi.generate(year, month);
       setGenResult({ created: res.data.created, warnings: res.data.warnings });
       await loadAll();
+    } catch (e: any) {
+      alert(`스케줄 생성 오류: ${e.message}`);
     } finally { setGenerating(false); }
   }
 
@@ -220,6 +222,7 @@ export default function Schedule() {
             <div className="gen-zero-help">
               <p>스케줄이 생성되지 않았습니다. 아래 항목을 확인해주세요:</p>
               <ul>
+                <li>📅 <strong>필요인원 설정 월 확인</strong> — 매장 관리 페이지의 "필요인원 설정 기준 월"을 <strong>{year}년 {month}월</strong>로 맞추고 다시 저장했는지 확인하세요 (기본값이 현재 달이라 다른 달로 저장됐을 수 있습니다)</li>
                 <li>📋 <strong>매장 관리 → 필요인원</strong> — 매장별 시간대·인원수가 설정되어 있어야 파트타이머가 배정됩니다</li>
                 <li>👔 <strong>직원 관리 → 근무패턴</strong> — 정규직은 요일별 근무패턴이 설정되어 있어야 배정됩니다</li>
                 <li>👥 <strong>활성 직원 확인</strong> — 비활성화된 직원은 배정되지 않습니다</li>
