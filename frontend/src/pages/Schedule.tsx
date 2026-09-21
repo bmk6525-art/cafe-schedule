@@ -45,6 +45,7 @@ function buildCalendarGrid(year: number, month: number) {
 
 export default function Schedule() {
   const { year, month } = useMonth();
+  const now = new Date();
   const [week, setWeek] = useState(1);
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('month');
