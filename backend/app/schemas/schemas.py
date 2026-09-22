@@ -140,12 +140,17 @@ class EmployeeResponse(EmployeeBase):
 
 class AvailabilityDayItem(BaseModel):
     day_of_week: DayOfWeek
+    # 가능 설정 (신규)
+    is_working_day: bool = False          # 이 요일 근무 가능 여부
+    available_start: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    available_end: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    # 불가능 설정 (기존 유지)
     is_day_unavailable: bool = False
     unavailable_start: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     unavailable_end: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     memo: Optional[str] = None
 
-    @field_validator('unavailable_start', 'unavailable_end')
+    @field_validator('available_start', 'available_end', 'unavailable_start', 'unavailable_end')
     @classmethod
     def av_time_5min(cls, v: Optional[str]) -> Optional[str]:
         return _validate_5min(v)
@@ -159,6 +164,10 @@ class MonthlyAvailabilityResponse(BaseModel):
     year: int
     month: int
     day_of_week: DayOfWeek
+    entry_type: str = 'UNAVAILABLE'
+    is_working_day: bool = False
+    available_start: Optional[str] = None
+    available_end: Optional[str] = None
     is_day_unavailable: bool
     unavailable_start: Optional[str]
     unavailable_end: Optional[str]

@@ -45,6 +45,30 @@ def _run_migrations():
                 "ON schedules (store_id, work_date)"
             ))
 
+        # monthly_availability 가능시간 컬럼 추가 (3차 개선)
+        if 'monthly_availability' in insp.get_table_names():
+            ma_cols = {c['name'] for c in insp.get_columns('monthly_availability')}
+            if 'entry_type' not in ma_cols:
+                conn.execute(text(
+                    "ALTER TABLE monthly_availability "
+                    "ADD COLUMN entry_type VARCHAR(20) NOT NULL DEFAULT 'UNAVAILABLE'"
+                ))
+            if 'is_working_day' not in ma_cols:
+                conn.execute(text(
+                    "ALTER TABLE monthly_availability "
+                    "ADD COLUMN is_working_day BOOLEAN NOT NULL DEFAULT 0"
+                ))
+            if 'available_start' not in ma_cols:
+                conn.execute(text(
+                    "ALTER TABLE monthly_availability "
+                    "ADD COLUMN available_start VARCHAR(5)"
+                ))
+            if 'available_end' not in ma_cols:
+                conn.execute(text(
+                    "ALTER TABLE monthly_availability "
+                    "ADD COLUMN available_end VARCHAR(5)"
+                ))
+
         conn.commit()
 
 

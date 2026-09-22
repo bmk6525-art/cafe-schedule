@@ -109,3 +109,47 @@
   padding: 2px 8px;
   border-radius: 6px;
 }
+
+/* 통합 테이블 헤더 */
+.av-table-new th { text-align: center; }
+.av-th-day { min-width: 60px; }
+.av-th-avail { background: #e8f5f0; color: #1a7a4a; font-size: 12px; }
+.av-th-unavail { background: #fef0f0; color: #c0392b; font-size: 12px; }
+.av-th-sub { font-size: 11px; font-weight: 500; }
+
+/* 행 상태별 배경 */
+.av-row--avail td:nth-child(-n+4) { background: #f4fdf8; }
+.av-row--unavail td:nth-child(n+5):nth-child(-n+7) { background: #fff5f5; }
+.av-row--both td:nth-child(-n+4) { background: #f4fdf8; }
+.av-row--both td:nth-child(n+5):nth-child(-n+7) { background: #fff5f5; }
+
+/* 가능 토글 색상 */
+.toggle-track--avail { background: #dde3ff; }
+input:checked + .toggle-track--avail { background: #1a7a4a !important; }
+
+/* 가이드 */
+.av-guide {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.av-guide-item { font-size: 12px; font-weight: 500; }
+.av-guide-item--avail { color: #1a7a4a; }
+.av-guide-item--unavail { color: #c0392b; }
+.av-guide-item--both { color: #7a4a1a; }
+.av-guide-hint { font-size: 11px; color: #b0b3c8; margin-left: auto; }
+
+/* 모달 하단 상태 요약 */
+.av-status-summary { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.av-status-avail {
+  font-size: 12px; font-weight: 600;
+  background: #d4f5e9; color: #1a7a4a;
+  padding: 3px 10px; border-radius: 10px;
+}
+.av-status-unavail {
+  font-size: 12px; font-weight: 600;
+  background: #ffe0e0; color: #c0392b;
+  padding: 3px 10px; border-radius: 10px;
+}

@@ -148,6 +148,13 @@ class MonthlyAvailability(Base):
     year = Column(Integer, nullable=False)
     month = Column(Integer, nullable=False)
     day_of_week = Column(SAEnum(DayOfWeek), nullable=False)
+    # 'UNAVAILABLE' (기존 불가능 레코드) or 'AVAILABLE' (신규 가능 레코드)
+    entry_type = Column(String(20), default='UNAVAILABLE', nullable=False, server_default='UNAVAILABLE')
+    # 가능 필드 (entry_type='AVAILABLE'일 때 사용)
+    is_working_day = Column(Boolean, default=False, nullable=False, server_default='0')  # 근무 가능 요일
+    available_start = Column(String(5), nullable=True)   # 가능 시작시간 "HH:MM"
+    available_end = Column(String(5), nullable=True)     # 가능 종료시간 "HH:MM"
+    # 불가능 필드 (entry_type='UNAVAILABLE'일 때 사용, 기존 유지)
     is_day_unavailable = Column(Boolean, default=False, nullable=False)  # 종일 불가능
     unavailable_start = Column(String(5), nullable=True)   # 불가능 시작시간 "HH:MM"
     unavailable_end = Column(String(5), nullable=True)     # 불가능 종료시간 "HH:MM"

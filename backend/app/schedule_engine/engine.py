@@ -111,14 +111,26 @@ class ScheduleEngine:
         for key in reqs_map:
             reqs_map[key].sort(key=lambda r: r.start_time)
 
-        # 파트타이머 불가능 시간: (employee_id, day_of_week) → MonthlyAvailability
+        # 파트타이머 가용성: (employee_id, day_of_week) → {'AVAILABLE': row|None, 'UNAVAILABLE': row|None}
         av_map: dict = {}
         if pt_ids:
             for a in db.query(MonthlyAvailability).filter(
                     MonthlyAvailability.employee_id.in_(pt_ids),
                     MonthlyAvailability.year == year,
                     MonthlyAvailability.month == month).all():
-                av_map[(a.employee_id, a.day_of_week)] = a
+                key = (a.employee_id, a.day_of_week)
+                if key not in av_map:
+                    av_map[key] = {'AVAILABLE': None, 'UNAVAILABLE': None}
+                etype = getattr(a, 'entry_type', 'UNAVAILABLE') or 'UNAVAILABLE'
+                av_map[key][etype] = a
+
+        # AVAILABLE 레코드가 하나라도 있는 직원 집합
+        # → 이 직원들은 AVAILABLE 없는 요일은 불가능으로 처리
+        pt_has_available: frozenset = frozenset(
+            emp_id for (emp_id, _) in av_map
+            if isinstance(av_map[(emp_id, _)], dict)
+            and av_map[(emp_id, _)].get('AVAILABLE') is not None
+        )
 
         # 이달 특정날짜 예외: (employee_id, exception_date) → AvailabilityException
         exc_map: dict = {}
@@ -248,7 +260,8 @@ class ScheduleEngine:
                         if self._is_available_cached(
                                 _pt, work_date, dow,
                                 _rq.start_time, _rq.end_time,
-                                av_map, exc_map, _eds):
+                                av_map, exc_map, _eds,
+                                pt_has_available):
                             _cands.append(_pt)
 
                     _scored.append((len(_cands), _si, _ned, _cov, _cands, _st, _rq))
@@ -314,17 +327,28 @@ class ScheduleEngine:
             self, pt: Employee, work_date: date, dow: DayOfWeek,
             start: str, end: str,
             av_map: dict, exc_map: dict,
-            existing_schedules: list) -> bool:
+            existing_schedules: list,
+            pt_has_available: frozenset = frozenset()) -> bool:
         """
         캐시된 데이터로 가용성 확인 (DB 조회 없음)
 
-        우선순위:
-          1. 특정 날짜 예외 (is_available_override=True → '가능' 예외, False → '불가능' 예외)
-          2. 월별 요일 기본 설정
-          3. 이미 배정된 스케줄 충돌 (항상 마지막 체크)
-        """
+        판정 순서:
+          1. 특정 날짜 예외 (1순위, 최우선)
+          2. AVAILABLE 레코드 — 가능 요일/시간 체크
+             - AVAILABLE 레코드 있음 → 시간 범위 확인 (범위 없으면 전체 가능)
+             - AVAILABLE 레코드 없고 pt_has_available에 포함 → 이 요일 불가능
+             - pt_has_available에 없음 → 하위 호환: 기본 가능
+          3. UNAVAILABLE 레코드 — 불가능 시간 체크 (기존 로직 유지)
+          4. 이미 배정된 스케줄 충돌 (항상 마지막)
 
-        # 1. 특정 날짜 예외 (최우선)
+        pt_has_available: AVAILABLE 레코드가 하나라도 있는 직원 ID 집합
+          → 가능 요일을 명시한 직원의 경우 AVAILABLE 없는 요일은 불가능
+          → 기본값 frozenset() → 기존 테스트 하위 호환 유지
+        """
+        req_s = _time_to_min(start)
+        req_e = _time_to_min(end)
+
+        # ── 1. 특정 날짜 예외 (최우선) ──────────────────────────────
         exc = exc_map.get((pt.id, work_date))
         if exc:
             is_override = getattr(exc, 'is_available_override', False)
@@ -332,11 +356,8 @@ class ScheduleEngine:
             if is_override:
                 # '가능' 예외: 이 날은 기본적으로 가능 (요일 설정 무시)
                 if exc.unavailable_start and exc.unavailable_end:
-                    # 특정 시간대만 가능 — 슬롯이 해당 윈도우 안에 완전히 포함되어야 함
                     avail_s = _time_to_min(exc.unavailable_start)
                     avail_e = _time_to_min(exc.unavailable_end)
-                    req_s = _time_to_min(start)
-                    req_e = _time_to_min(end)
                     if not (req_s >= avail_s and req_e <= avail_e):
                         return False
                 # 요일 설정 건너뜀 → 스케줄 충돌만 확인
@@ -354,7 +375,6 @@ class ScheduleEngine:
                 if exc.unavailable_start and exc.unavailable_end:
                     if _overlaps(start, end, exc.unavailable_start, exc.unavailable_end):
                         return False
-                    # 이 예외의 시간 범위가 이 슬롯에 해당하지 않음
                     # 예외 레코드가 이 날짜를 명시적으로 정의 → 요일 설정 건너뜀
                     for s in existing_schedules:
                         if getattr(s, 'is_cancelled', False):
@@ -362,19 +382,45 @@ class ScheduleEngine:
                         if _overlaps(start, end, s.start_time, s.end_time):
                             return False
                     return True
-                # 예외 레코드에 실질적인 가용성 정보가 없음 (빈 레코드)
-                # → 요일 기본 설정으로 fall-through
+                # 빈 예외 레코드 → 요일 기본 설정으로 fall-through
 
-        # 2. 월별 요일 기본 설정
-        av = av_map.get((pt.id, dow))
-        if av:
-            if av.is_day_unavailable:
+        # ── 2. 월별 요일 기본 설정 ──────────────────────────────────
+        av_entry = av_map.get((pt.id, dow))  # {'AVAILABLE': row|None, 'UNAVAILABLE': row|None}
+
+        # av_entry가 구 형식(단일 MonthlyAvailability 객체)이면 하위 호환 처리
+        if av_entry is not None and not isinstance(av_entry, dict):
+            av_entry = {'AVAILABLE': None, 'UNAVAILABLE': av_entry}
+
+        av_avail = (av_entry or {}).get('AVAILABLE')
+        av_unavail = (av_entry or {}).get('UNAVAILABLE')
+
+        # 2-a. 가능 요일/시간 체크
+        if av_avail is not None:
+            # 이 요일에 AVAILABLE 레코드 있음 → 근무 가능 요일
+            av_start = getattr(av_avail, 'available_start', None)
+            av_end = getattr(av_avail, 'available_end', None)
+            if av_start and av_end:
+                # 가능 시간 범위 지정: 슬롯이 범위 안에 완전히 포함되어야 함
+                avail_s = _time_to_min(av_start)
+                avail_e = _time_to_min(av_end)
+                if not (req_s >= avail_s and req_e <= avail_e):
+                    return False
+            # else: is_working_day만 → 전체 운영시간 가능 (시간 제한 없음)
+        elif pt.id in pt_has_available:
+            # 이 직원은 다른 요일에 AVAILABLE 레코드가 있지만 이 요일에는 없음
+            # → 가능 요일이 아님 (불가능)
+            return False
+        # else: AVAILABLE 레코드 자체가 없는 직원 → 하위 호환: 기본 가능
+
+        # 2-b. 불가능 시간 체크 (UNAVAILABLE 레코드, 기존 로직 유지)
+        if av_unavail is not None:
+            if av_unavail.is_day_unavailable:
                 return False
-            if av.unavailable_start and av.unavailable_end:
-                if _overlaps(start, end, av.unavailable_start, av.unavailable_end):
+            if av_unavail.unavailable_start and av_unavail.unavailable_end:
+                if _overlaps(start, end, av_unavail.unavailable_start, av_unavail.unavailable_end):
                     return False
 
-        # 3. 이미 배정된 스케줄 충돌
+        # ── 3. 이미 배정된 스케줄 충돌 ─────────────────────────────
         for s in existing_schedules:
             if getattr(s, 'is_cancelled', False):
                 continue

@@ -6,8 +6,14 @@ import TimeSelect from '../TimeSelect';
 import './WorkPatternModal.css';
 import './AvailabilityModal.css';
 
+// 요일별 가능/불가능 설정을 하나의 행으로 관리
 interface DayRow {
   day_of_week: DayOfWeek;
+  // 가능 설정
+  is_working_day: boolean;
+  available_start: string;
+  available_end: string;
+  // 불가능 설정
   is_day_unavailable: boolean;
   unavailable_start: string;
   unavailable_end: string;
@@ -34,6 +40,9 @@ interface Props {
 function defaultRows(): DayRow[] {
   return DAY_ORDER.map((d) => ({
     day_of_week: d,
+    is_working_day: false,
+    available_start: '',
+    available_end: '',
     is_day_unavailable: false,
     unavailable_start: '',
     unavailable_end: '',
@@ -64,15 +73,21 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
         api.get(`/employees/${employee.id}/availability/${year}/${month}`),
         api.get(`/employees/${employee.id}/exceptions/${year}/${month}`),
       ]);
-      const avData = avRes.data;
+      const avData: any[] = avRes.data;
+
+      // AVAILABLE / UNAVAILABLE 레코드를 요일별로 병합
       setRows(DAY_ORDER.map((d) => {
-        const found = avData.find((r: any) => r.day_of_week === d);
+        const avail = avData.find((r: any) => r.day_of_week === d && r.entry_type === 'AVAILABLE');
+        const unavail = avData.find((r: any) => r.day_of_week === d && r.entry_type !== 'AVAILABLE');
         return {
           day_of_week: d,
-          is_day_unavailable: found?.is_day_unavailable ?? false,
-          unavailable_start: found?.unavailable_start ?? '',
-          unavailable_end: found?.unavailable_end ?? '',
-          memo: found?.memo ?? '',
+          is_working_day: avail?.is_working_day ?? false,
+          available_start: avail?.available_start ?? '',
+          available_end: avail?.available_end ?? '',
+          is_day_unavailable: unavail?.is_day_unavailable ?? false,
+          unavailable_start: unavail?.unavailable_start ?? '',
+          unavailable_end: unavail?.unavailable_end ?? '',
+          memo: avail?.memo ?? unavail?.memo ?? '',
         };
       }));
       setExceptions(exRes.data.map((e: any) => ({
@@ -90,7 +105,16 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
   }
 
   function updateRow(day: DayOfWeek, field: keyof DayRow, value: any) {
-    setRows((prev) => prev.map((r) => r.day_of_week === day ? { ...r, [field]: value } : r));
+    setRows((prev) => prev.map((r) => {
+      if (r.day_of_week !== day) return r;
+      const updated = { ...r, [field]: value };
+      // 종일 불가능 체크 시 시간 초기화
+      if (field === 'is_day_unavailable' && value) {
+        updated.unavailable_start = '';
+        updated.unavailable_end = '';
+      }
+      return updated;
+    }));
   }
 
   async function handleSave() {
@@ -99,6 +123,9 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
       await api.put(`/employees/${employee.id}/availability/${year}/${month}`, {
         days: rows.map((r) => ({
           day_of_week: r.day_of_week,
+          is_working_day: r.is_working_day,
+          available_start: r.available_start || null,
+          available_end: r.available_end || null,
           is_day_unavailable: r.is_day_unavailable,
           unavailable_start: r.unavailable_start || null,
           unavailable_end: r.unavailable_end || null,
@@ -157,6 +184,10 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
     return '불가능';
   }
 
+  // 가능/불가능 설정 유무 카운트 (저장 버튼 위 상태 표시용)
+  const availCount = rows.filter((r) => r.is_working_day || r.available_start).length;
+  const unavailCount = rows.filter((r) => r.is_day_unavailable || r.unavailable_start).length;
+
   return (
     <div
       className="modal-backdrop"
@@ -169,8 +200,8 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
       <div className="modal modal--wide" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2 className="modal-title">{employee.name} — {year}년 {month}월 불가능 시간</h2>
-            <p className="modal-subtitle">근무 불가능한 시간을 요일별로 입력합니다. 입력하지 않은 요일은 종일 가능으로 처리됩니다.</p>
+            <h2 className="modal-title">{employee.name} — {year}년 {month}월 근무 가용성</h2>
+            <p className="modal-subtitle">요일별 근무 가능/불가능 시간을 설정합니다. 불가능 설정이 가능 설정보다 우선합니다.</p>
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
@@ -178,52 +209,113 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
         <div className="modal-body">
           {loading ? <p className="wp-loading">불러오는 중...</p> : (
             <>
-              {/* 요일별 불가능 시간 */}
-              <h3 className="av-section-title">요일별 불가능 시간</h3>
-              <table className="wp-table">
+              {/* 요일별 가능/불가능 시간 통합 테이블 */}
+              <table className="wp-table av-table-new">
                 <thead>
                   <tr>
-                    <th>요일</th>
-                    <th>종일 불가</th>
-                    <th>불가 시작</th>
-                    <th>불가 종료</th>
-                    <th>메모</th>
+                    <th rowSpan={2} className="av-th-day">요일</th>
+                    <th colSpan={3} className="av-th-avail">근무 가능</th>
+                    <th colSpan={3} className="av-th-unavail">근무 불가능</th>
+                    <th rowSpan={2}>메모</th>
+                  </tr>
+                  <tr>
+                    <th className="av-th-sub">가능 요일</th>
+                    <th className="av-th-sub">가능 시작</th>
+                    <th className="av-th-sub">가능 종료</th>
+                    <th className="av-th-sub">종일 불가</th>
+                    <th className="av-th-sub">불가 시작</th>
+                    <th className="av-th-sub">불가 종료</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.day_of_week} className={row.is_day_unavailable ? 'wp-row--off' : ''}>
-                      <td>
-                        <span className={`day-badge ${['SAT','SUN'].includes(row.day_of_week) ? 'day-badge--weekend' : ''}`}>
-                          {DAY_LABELS[row.day_of_week]}
-                        </span>
-                      </td>
-                      <td className="wp-toggle">
-                        <label className="toggle">
-                          <input type="checkbox" checked={row.is_day_unavailable}
-                            onChange={(e) => updateRow(row.day_of_week, 'is_day_unavailable', e.target.checked)} />
-                          <span className="toggle-track" />
-                        </label>
-                      </td>
-                      <td>
-                        <input type="time" step="300" className="wp-time-input"
-                          value={row.unavailable_start} disabled={row.is_day_unavailable}
-                          onChange={(e) => updateRow(row.day_of_week, 'unavailable_start', e.target.value)} />
-                      </td>
-                      <td>
-                        <input type="time" step="300" className="wp-time-input"
-                          value={row.unavailable_end} disabled={row.is_day_unavailable}
-                          onChange={(e) => updateRow(row.day_of_week, 'unavailable_end', e.target.value)} />
-                      </td>
-                      <td>
-                        <input className="av-memo-input" value={row.memo}
-                          placeholder="메모"
-                          onChange={(e) => updateRow(row.day_of_week, 'memo', e.target.value)} />
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((row) => {
+                    const isAvail = row.is_working_day || !!row.available_start;
+                    const isUnavail = row.is_day_unavailable || !!row.unavailable_start;
+                    const rowClass = [
+                      isAvail && !isUnavail ? 'av-row--avail' : '',
+                      isUnavail && !isAvail ? 'av-row--unavail' : '',
+                      isAvail && isUnavail ? 'av-row--both' : '',
+                    ].filter(Boolean).join(' ');
+                    return (
+                      <tr key={row.day_of_week} className={rowClass}>
+                        <td>
+                          <span className={`day-badge ${['SAT','SUN'].includes(row.day_of_week) ? 'day-badge--weekend' : ''}`}>
+                            {DAY_LABELS[row.day_of_week]}
+                          </span>
+                        </td>
+                        {/* 가능 설정 */}
+                        <td className="wp-toggle">
+                          <label className="toggle">
+                            <input
+                              type="checkbox"
+                              checked={row.is_working_day}
+                              onChange={(e) => updateRow(row.day_of_week, 'is_working_day', e.target.checked)}
+                            />
+                            <span className="toggle-track toggle-track--avail" />
+                          </label>
+                        </td>
+                        <td>
+                          <input
+                            type="time" step="300" className="wp-time-input"
+                            value={row.available_start}
+                            onChange={(e) => updateRow(row.day_of_week, 'available_start', e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="time" step="300" className="wp-time-input"
+                            value={row.available_end}
+                            disabled={!row.available_start}
+                            onChange={(e) => updateRow(row.day_of_week, 'available_end', e.target.value)}
+                          />
+                        </td>
+                        {/* 불가능 설정 */}
+                        <td className="wp-toggle">
+                          <label className="toggle">
+                            <input
+                              type="checkbox"
+                              checked={row.is_day_unavailable}
+                              onChange={(e) => updateRow(row.day_of_week, 'is_day_unavailable', e.target.checked)}
+                            />
+                            <span className="toggle-track" />
+                          </label>
+                        </td>
+                        <td>
+                          <input
+                            type="time" step="300" className="wp-time-input"
+                            value={row.unavailable_start}
+                            disabled={row.is_day_unavailable}
+                            onChange={(e) => updateRow(row.day_of_week, 'unavailable_start', e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="time" step="300" className="wp-time-input"
+                            value={row.unavailable_end}
+                            disabled={row.is_day_unavailable || !row.unavailable_start}
+                            onChange={(e) => updateRow(row.day_of_week, 'unavailable_end', e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="av-memo-input" value={row.memo}
+                            placeholder="메모"
+                            onChange={(e) => updateRow(row.day_of_week, 'memo', e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+
+              {/* 입력 가이드 */}
+              <div className="av-guide">
+                <span className="av-guide-item av-guide-item--avail">■ 가능 요일 설정</span>
+                <span className="av-guide-item av-guide-item--unavail">■ 불가능 설정</span>
+                <span className="av-guide-item av-guide-item--both">■ 가능+불가능 동시 (불가능 우선)</span>
+                <span className="av-guide-hint">가능 시간 미입력 시 해당 요일 전체 가능</span>
+              </div>
 
               {/* 특정 날짜 예외 */}
               <h3 className="av-section-title" style={{ marginTop: 24 }}>
@@ -252,7 +344,6 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
                   value={newEx.exception_date}
                   onChange={(e) => setNewEx((p) => ({ ...p, exception_date: e.target.value }))} />
 
-                {/* 불가능/가능 타입 선택 */}
                 <select
                   className="ex-type-select"
                   value={newEx.is_available_override ? 'avail' : 'unavail'}
@@ -305,6 +396,12 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
         </div>
 
         <div className="modal-footer">
+          {(availCount > 0 || unavailCount > 0) && (
+            <span className="av-status-summary">
+              {availCount > 0 && <span className="av-status-avail">가능 {availCount}개</span>}
+              {unavailCount > 0 && <span className="av-status-unavail">불가능 {unavailCount}개</span>}
+            </span>
+          )}
           {saved && <span className="save-ok">✅ 저장되었습니다</span>}
           <button className="btn btn--secondary" onClick={onClose}>닫기</button>
           <button className="btn btn--primary" onClick={handleSave} disabled={saving || loading}>

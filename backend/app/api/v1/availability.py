@@ -20,11 +20,32 @@ DAY_ORDER = [DayOfWeek.MON, DayOfWeek.TUE, DayOfWeek.WED,
 
 @router.get("/availability-status")
 def get_availability_status(year: int, month: int, db: Session = Depends(get_db)):
-    """월별 불가능시간 입력 현황 — 입력한 파트타이머 ID 목록 반환"""
-    ids = (db.query(MonthlyAvailability.employee_id)
-           .filter_by(year=year, month=month)
-           .distinct().all())
-    return {'employee_ids': [r[0] for r in ids]}
+    """월별 가능/불가능 시간 입력 현황 — 입력한 파트타이머별 설정 수 반환"""
+    rows = (db.query(MonthlyAvailability.employee_id, MonthlyAvailability.entry_type)
+            .filter_by(year=year, month=month)
+            .all())
+
+    # employee_id → {'AVAILABLE': count, 'UNAVAILABLE': count}
+    status_map: dict = {}
+    for emp_id, entry_type in rows:
+        if emp_id not in status_map:
+            status_map[emp_id] = {'AVAILABLE': 0, 'UNAVAILABLE': 0}
+        etype = entry_type if entry_type in ('AVAILABLE', 'UNAVAILABLE') else 'UNAVAILABLE'
+        status_map[emp_id][etype] += 1
+
+    result = []
+    for emp_id, counts in status_map.items():
+        result.append({
+            'employee_id': emp_id,
+            'available_count': counts['AVAILABLE'],
+            'unavailable_count': counts['UNAVAILABLE'],
+        })
+
+    # 기존 API 호환: employee_ids 필드도 유지
+    return {
+        'employee_ids': list(status_map.keys()),
+        'details': result,
+    }
 
 
 def _check_part_timer(employee_id: int, db: Session) -> Employee:
@@ -36,7 +57,7 @@ def _check_part_timer(employee_id: int, db: Session) -> Employee:
     return emp
 
 
-# ── 월별 불가능 시간 (요일별) ──
+# ── 월별 가능/불가능 시간 (요일별) ──
 
 @router.get("/{employee_id}/availability/{year}/{month}",
             response_model=List[MonthlyAvailabilityResponse])
@@ -63,18 +84,39 @@ def upsert_monthly_availability(employee_id: int, year: int, month: int,
 
     new_rows = []
     for item in data.days:
-        if not item.is_day_unavailable and not item.unavailable_start:
-            continue
-        row = MonthlyAvailability(
-            employee_id=employee_id, year=year, month=month,
-            day_of_week=item.day_of_week,
-            is_day_unavailable=item.is_day_unavailable,
-            unavailable_start=item.unavailable_start if not item.is_day_unavailable else None,
-            unavailable_end=item.unavailable_end if not item.is_day_unavailable else None,
-            memo=item.memo,
-        )
-        db.add(row)
-        new_rows.append(row)
+        # AVAILABLE 레코드 저장 조건: is_working_day=True 또는 가능 시간 입력
+        if item.is_working_day or item.available_start:
+            row = MonthlyAvailability(
+                employee_id=employee_id, year=year, month=month,
+                day_of_week=item.day_of_week,
+                entry_type='AVAILABLE',
+                is_working_day=item.is_working_day,
+                available_start=item.available_start,
+                available_end=item.available_end if item.available_start else None,
+                is_day_unavailable=False,
+                unavailable_start=None,
+                unavailable_end=None,
+                memo=item.memo,
+            )
+            db.add(row)
+            new_rows.append(row)
+
+        # UNAVAILABLE 레코드 저장 조건: is_day_unavailable=True 또는 불가능 시간 입력
+        if item.is_day_unavailable or item.unavailable_start:
+            row = MonthlyAvailability(
+                employee_id=employee_id, year=year, month=month,
+                day_of_week=item.day_of_week,
+                entry_type='UNAVAILABLE',
+                is_working_day=False,
+                available_start=None,
+                available_end=None,
+                is_day_unavailable=item.is_day_unavailable,
+                unavailable_start=item.unavailable_start if not item.is_day_unavailable else None,
+                unavailable_end=item.unavailable_end if not item.is_day_unavailable else None,
+                memo=item.memo,
+            )
+            db.add(row)
+            new_rows.append(row)
 
     db.commit()
     for r in new_rows:
@@ -91,7 +133,7 @@ def bulk_copy_availability(
     to_year: int, to_month: int,
     db: Session = Depends(get_db)
 ):
-    """모든 파트타이머의 불가능 시간 설정을 다른 달로 일괄 복사"""
+    """모든 파트타이머의 가능/불가능 시간 설정을 다른 달로 일괄 복사"""
     src_rows = db.query(MonthlyAvailability).filter_by(
         year=from_year, month=from_month
     ).all()
@@ -99,7 +141,7 @@ def bulk_copy_availability(
     if not src_rows:
         raise HTTPException(
             status_code=404,
-            detail=f"{from_year}년 {from_month}월의 불가능 시간 데이터가 없습니다."
+            detail=f"{from_year}년 {from_month}월의 가용성 설정 데이터가 없습니다."
         )
 
     db.query(MonthlyAvailability).filter_by(year=to_year, month=to_month).delete()
@@ -108,7 +150,7 @@ def bulk_copy_availability(
     seen: set = set()
     count = 0
     for r in src_rows:
-        key = (r.employee_id, r.day_of_week)
+        key = (r.employee_id, r.day_of_week, getattr(r, 'entry_type', 'UNAVAILABLE'))
         if key in seen:
             continue
         seen.add(key)
@@ -116,6 +158,10 @@ def bulk_copy_availability(
             employee_id=r.employee_id,
             year=to_year, month=to_month,
             day_of_week=r.day_of_week,
+            entry_type=getattr(r, 'entry_type', 'UNAVAILABLE'),
+            is_working_day=getattr(r, 'is_working_day', False),
+            available_start=getattr(r, 'available_start', None),
+            available_end=getattr(r, 'available_end', None),
             is_day_unavailable=r.is_day_unavailable,
             unavailable_start=r.unavailable_start,
             unavailable_end=r.unavailable_end,

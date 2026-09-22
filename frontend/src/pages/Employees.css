@@ -159,6 +159,7 @@
 
 .av-badge--ok      { background: #e6f9f0; color: #1a7a4a; }
 .av-badge--missing { background: #fdeaea; color: #c0392b; }
+.av-badge--detail  { font-size: 10px; letter-spacing: -0.2px; cursor: default; }
 
 .emp-name { font-weight: 600; color: #1a1d2e; }
 

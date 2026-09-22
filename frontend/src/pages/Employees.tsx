@@ -29,8 +29,9 @@ export default function Employees() {
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
 
-  // 불가능시간 입력 현황
+  // 가용성 입력 현황 (employee_id → {available_count, unavailable_count})
   const [availStatusIds, setAvailStatusIds] = useState<number[]>([]);
+  const [availDetails, setAvailDetails] = useState<Record<number, { available_count: number; unavailable_count: number }>>({});
 
   // 불가능시간 일괄 복사 상태
   const now = new Date();
@@ -69,8 +70,18 @@ export default function Employees() {
     try {
       const res = await availabilityApi.getStatus(avYear, avMonth);
       setAvailStatusIds(res.data.employee_ids || []);
+      // 상세 카운트 맵 구성
+      const detailMap: Record<number, { available_count: number; unavailable_count: number }> = {};
+      for (const d of (res.data.details || [])) {
+        detailMap[d.employee_id] = {
+          available_count: d.available_count ?? 0,
+          unavailable_count: d.unavailable_count ?? 0,
+        };
+      }
+      setAvailDetails(detailMap);
     } catch {
       setAvailStatusIds([]);
+      setAvailDetails({});
     }
   }
 
@@ -298,11 +309,25 @@ export default function Employees() {
                     </span>
                   </td>
                   <td>
-                    {emp.employee_type === 'PART_TIMER' && emp.is_active ? (
-                      <span className={`av-badge ${availStatusIds.includes(emp.id) ? 'av-badge--ok' : 'av-badge--missing'}`}>
-                        {availStatusIds.includes(emp.id) ? '입력' : '미입력'}
-                      </span>
-                    ) : (
+                    {emp.employee_type === 'PART_TIMER' && emp.is_active ? (() => {
+                      const detail = availDetails[emp.id];
+                      const hasAny = availStatusIds.includes(emp.id);
+                      if (!hasAny || !detail) {
+                        return <span className="av-badge av-badge--missing">미입력</span>;
+                      }
+                      const { available_count: ac, unavailable_count: uc } = detail;
+                      const parts: string[] = [];
+                      if (ac > 0) parts.push(`가능 ${ac}`);
+                      if (uc > 0) parts.push(`불가 ${uc}`);
+                      return (
+                        <span
+                          className={`av-badge av-badge--ok av-badge--detail`}
+                          title={`가능 ${ac}개 / 불가능 ${uc}개`}
+                        >
+                          입력됨 ({parts.join(' / ')})
+                        </span>
+                      );
+                    })() : (
                       <span className="emp-dash">—</span>
                     )}
                   </td>
