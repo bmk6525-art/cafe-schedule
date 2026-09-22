@@ -32,6 +32,13 @@ export default function Employees() {
   // 가용성 입력 현황 (employee_id → {available_count, unavailable_count})
   const [availStatusIds, setAvailStatusIds] = useState<number[]>([]);
   const [availDetails, setAvailDetails] = useState<Record<number, { available_count: number; unavailable_count: number }>>({});
+  // 로컬 저장 (저장 버튼 클릭 시 즉시 반영, API 실패와 무관하게 배지 표시)
+  const [localAvailMap, setLocalAvailMap] = useState<Record<number, { ac: number; uc: number }>>(() => {
+    try {
+      const raw = localStorage.getItem(`cafe_avail_${new Date().getFullYear()}_${new Date().getMonth() + 1}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
 
   // 불가능시간 일괄 복사 상태
   const now = new Date();
@@ -50,7 +57,13 @@ export default function Employees() {
   const [hardDeleting, setHardDeleting] = useState(false);
 
   useEffect(() => { loadAll(); }, [showInactive]);
-  useEffect(() => { loadAvailStatus(); }, [avYear, avMonth]);
+  useEffect(() => {
+    loadAvailStatus();
+    try {
+      const raw = localStorage.getItem(`cafe_avail_${avYear}_${avMonth}`);
+      setLocalAvailMap(raw ? JSON.parse(raw) : {});
+    } catch { setLocalAvailMap({}); }
+  }, [avYear, avMonth]);
 
   async function loadAll() {
     setLoading(true);
@@ -80,9 +93,24 @@ export default function Employees() {
       }
       setAvailDetails(detailMap);
     } catch {
-      setAvailStatusIds([]);
-      setAvailDetails({});
+      // API 실패 시 기존 상태 유지 (localAvailMap으로 배지 표시)
     }
+  }
+
+  function handleAvailSaved(empId: number, ac: number, uc: number) {
+    const updated = { ...localAvailMap, [empId]: { ac, uc } };
+    setLocalAvailMap(updated);
+    try {
+      localStorage.setItem(`cafe_avail_${avYear}_${avMonth}`, JSON.stringify(updated));
+    } catch { /* ignore */ }
+    // API 상태도 즉시 업데이트
+    if (!availStatusIds.includes(empId)) {
+      setAvailStatusIds((prev) => [...prev, empId]);
+    }
+    setAvailDetails((prev) => ({
+      ...prev,
+      [empId]: { available_count: ac, unavailable_count: uc },
+    }));
   }
 
   function getStoreName(id?: number | null) {
@@ -310,13 +338,15 @@ export default function Employees() {
                   </td>
                   <td>
                     {emp.employee_type === 'PART_TIMER' && emp.is_active ? (() => {
-                      const hasAny = availStatusIds.includes(emp.id);
+                      // 로컬 저장 우선, 없으면 API 상태 사용
+                      const localEntry = localAvailMap[emp.id];
+                      const hasAny = localEntry != null || availStatusIds.includes(emp.id);
                       if (!hasAny) {
                         return <span className="av-badge av-badge--missing">미입력</span>;
                       }
                       const detail = availDetails[emp.id];
-                      const ac = detail?.available_count ?? 0;
-                      const uc = detail?.unavailable_count ?? 0;
+                      const ac = localEntry?.ac ?? detail?.available_count ?? 0;
+                      const uc = localEntry?.uc ?? detail?.unavailable_count ?? 0;
                       const parts: string[] = [];
                       if (ac > 0) parts.push(`가능 ${ac}`);
                       if (uc > 0) parts.push(`불가 ${uc}`);
@@ -403,6 +433,7 @@ export default function Employees() {
           year={avYear}
           month={avMonth}
           stores={stores}
+          onSaved={(ac, uc) => handleAvailSaved(avTarget.id, ac, uc)}
           onClose={() => { setAvTarget(null); loadAvailStatus(); }}
         />
       )}

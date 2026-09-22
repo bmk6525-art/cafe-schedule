@@ -36,6 +36,7 @@ interface Props {
   year: number;
   month: number;
   stores: Store[];
+  onSaved: (availableCount: number, unavailableCount: number) => void;
   onClose: () => void;
 }
 
@@ -58,7 +59,7 @@ const EMPTY_NEW_EX: Exception = {
   unavailable_start: '09:00', unavailable_end: '18:00', memo: '',
 };
 
-export default function AvailabilityModal({ employee, year, month, stores, onClose }: Props) {
+export default function AvailabilityModal({ employee, year, month, stores, onSaved, onClose }: Props) {
   const [rows, setRows] = useState<DayRow[]>(defaultRows());
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,18 +95,30 @@ export default function AvailabilityModal({ employee, year, month, stores, onClo
           memo: avail?.memo ?? unavail?.memo ?? '',
         };
       }));
-      setExceptions(exRes.data.map((e: any) => ({
-        id: e.id,
-        exception_date: e.exception_date,
-        is_day_unavailable: e.is_day_unavailable,
-        is_available_override: e.is_available_override ?? false,
-        unavailable_start: e.unavailable_start ?? '',
-        unavailable_end: e.unavailable_end ?? '',
-        memo: e.memo ?? '',
-      })));
+      setExceptions(_parseExceptions(exRes.data));
     } finally {
       setLoading(false);
     }
+  }
+
+  // 예외만 다시 불러옴 — 요일별 설정(rows)은 건드리지 않음
+  async function loadExceptions() {
+    try {
+      const exRes = await api.get(`/employees/${employee.id}/exceptions/${year}/${month}`);
+      setExceptions(_parseExceptions(exRes.data));
+    } catch { /* ignore */ }
+  }
+
+  function _parseExceptions(data: any[]): Exception[] {
+    return data.map((e: any) => ({
+      id: e.id,
+      exception_date: e.exception_date,
+      is_day_unavailable: e.is_day_unavailable,
+      is_available_override: e.is_available_override ?? false,
+      unavailable_start: e.unavailable_start ?? '',
+      unavailable_end: e.unavailable_end ?? '',
+      memo: e.memo ?? '',
+    }));
   }
 
   function updateRow(day: DayOfWeek, field: keyof DayRow, value: any) {
@@ -139,6 +152,7 @@ export default function AvailabilityModal({ employee, year, month, stores, onClo
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      onSaved(availCount, unavailCount);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -164,7 +178,7 @@ export default function AvailabilityModal({ employee, year, month, stores, onClo
         memo: newEx.memo || null,
       });
       setNewEx(EMPTY_NEW_EX);
-      await loadData();
+      await loadExceptions();
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -174,7 +188,7 @@ export default function AvailabilityModal({ employee, year, month, stores, onClo
 
   async function handleDeleteException(id: number) {
     await api.delete(`/employees/exceptions/${id}`);
-    await loadData();
+    await loadExceptions();
   }
 
   function exDesc(ex: Exception) {
