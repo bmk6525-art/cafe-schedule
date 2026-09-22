@@ -68,6 +68,11 @@ def _run_migrations():
                     "ALTER TABLE monthly_availability "
                     "ADD COLUMN available_end VARCHAR(5)"
                 ))
+            if 'store_id' not in ma_cols:
+                conn.execute(text(
+                    "ALTER TABLE monthly_availability "
+                    "ADD COLUMN store_id INTEGER REFERENCES stores(id)"
+                ))
 
         conn.commit()
 

@@ -402,6 +402,7 @@ export default function Employees() {
           employee={avTarget}
           year={avYear}
           month={avMonth}
+          stores={stores}
           onClose={() => { setAvTarget(null); loadAvailStatus(); }}
         />
       )}

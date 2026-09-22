@@ -261,7 +261,7 @@ class ScheduleEngine:
                                 _pt, work_date, dow,
                                 _rq.start_time, _rq.end_time,
                                 av_map, exc_map, _eds,
-                                pt_has_available):
+                                pt_has_available, _st.id):
                             _cands.append(_pt)
 
                     _scored.append((len(_cands), _si, _ned, _cov, _cands, _st, _rq))
@@ -328,7 +328,8 @@ class ScheduleEngine:
             start: str, end: str,
             av_map: dict, exc_map: dict,
             existing_schedules: list,
-            pt_has_available: frozenset = frozenset()) -> bool:
+            pt_has_available: frozenset = frozenset(),
+            slot_store_id: int = None) -> bool:
         """
         캐시된 데이터로 가용성 확인 (DB 조회 없음)
 
@@ -396,9 +397,14 @@ class ScheduleEngine:
         av_avail = (av_entry or {}).get('AVAILABLE')
         av_unavail = (av_entry or {}).get('UNAVAILABLE')
 
-        # 2-a. 가능 요일/시간 체크
+        # 2-a. 가능 요일/시간/매장 체크
         if av_avail is not None:
             # 이 요일에 AVAILABLE 레코드 있음 → 근무 가능 요일
+            # 매장 제한 체크: store_id가 지정된 경우 슬롯 매장과 일치해야 함
+            av_store = getattr(av_avail, 'store_id', None)
+            if av_store is not None and slot_store_id is not None and av_store != slot_store_id:
+                return False
+
             av_start = getattr(av_avail, 'available_start', None)
             av_end = getattr(av_avail, 'available_end', None)
             if av_start:

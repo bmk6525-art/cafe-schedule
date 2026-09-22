@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Employee, DayOfWeek } from '../../types';
+import type { Employee, Store, DayOfWeek } from '../../types';
 import { DAY_LABELS, DAY_ORDER } from '../../types';
 import { api } from '../../services/api';
 import TimeSelect from '../TimeSelect';
@@ -11,6 +11,7 @@ interface DayRow {
   day_of_week: DayOfWeek;
   // 가능 설정
   is_working_day: boolean;
+  store_id: number | null;
   available_start: string;
   available_end: string;
   // 불가능 설정
@@ -34,6 +35,7 @@ interface Props {
   employee: Employee;
   year: number;
   month: number;
+  stores: Store[];
   onClose: () => void;
 }
 
@@ -41,6 +43,7 @@ function defaultRows(): DayRow[] {
   return DAY_ORDER.map((d) => ({
     day_of_week: d,
     is_working_day: false,
+    store_id: null,
     available_start: '',
     available_end: '',
     is_day_unavailable: false,
@@ -55,7 +58,7 @@ const EMPTY_NEW_EX: Exception = {
   unavailable_start: '09:00', unavailable_end: '18:00', memo: '',
 };
 
-export default function AvailabilityModal({ employee, year, month, onClose }: Props) {
+export default function AvailabilityModal({ employee, year, month, stores, onClose }: Props) {
   const [rows, setRows] = useState<DayRow[]>(defaultRows());
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +85,7 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
         return {
           day_of_week: d,
           is_working_day: avail?.is_working_day ?? false,
+          store_id: avail?.store_id ?? null,
           available_start: avail?.available_start ?? '',
           available_end: avail?.available_end ?? '',
           is_day_unavailable: unavail?.is_day_unavailable ?? false,
@@ -124,6 +128,7 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
         days: rows.map((r) => ({
           day_of_week: r.day_of_week,
           is_working_day: r.is_working_day,
+          store_id: r.store_id ?? null,
           available_start: r.available_start || null,
           available_end: r.available_end || null,
           is_day_unavailable: r.is_day_unavailable,
@@ -214,12 +219,13 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
                 <thead>
                   <tr>
                     <th rowSpan={2} className="av-th-day">요일</th>
-                    <th colSpan={3} className="av-th-avail">근무 가능</th>
+                    <th colSpan={4} className="av-th-avail">근무 가능</th>
                     <th colSpan={3} className="av-th-unavail">근무 불가능</th>
                     <th rowSpan={2}>메모</th>
                   </tr>
                   <tr>
                     <th className="av-th-sub">가능 요일</th>
+                    <th className="av-th-sub">호점</th>
                     <th className="av-th-sub">가능 시작</th>
                     <th className="av-th-sub">가능 종료</th>
                     <th className="av-th-sub">종일 불가</th>
@@ -253,6 +259,24 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
                             />
                             <span className="toggle-track toggle-track--avail" />
                           </label>
+                        </td>
+                        {/* 호점 선택 */}
+                        <td className="av-td-store">
+                          {row.is_working_day || row.available_start ? (
+                            <select
+                              className="av-store-select"
+                              value={row.store_id ?? ''}
+                              onChange={(e) => updateRow(row.day_of_week, 'store_id', e.target.value ? Number(e.target.value) : null)}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <option value="">전체</option>
+                              {stores.map((s) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="av-time-na">—</span>
+                          )}
                         </td>
                           {/* 가능 시작 */}
                         <td className="av-td-time">

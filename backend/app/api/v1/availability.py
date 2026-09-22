@@ -21,30 +21,37 @@ DAY_ORDER = [DayOfWeek.MON, DayOfWeek.TUE, DayOfWeek.WED,
 @router.get("/availability-status")
 def get_availability_status(year: int, month: int, db: Session = Depends(get_db)):
     """월별 가능/불가능 시간 입력 현황 — 입력한 파트타이머별 설정 수 반환"""
-    rows = (db.query(MonthlyAvailability.employee_id, MonthlyAvailability.entry_type)
-            .filter_by(year=year, month=month)
-            .all())
+    # 1단계: 단순 존재 확인 (entry_type 컬럼 의존 없음 → 구 DB 호환)
+    id_rows = (db.query(MonthlyAvailability.employee_id)
+               .filter_by(year=year, month=month)
+               .distinct().all())
+    emp_ids = [r[0] for r in id_rows]
 
-    # employee_id → {'AVAILABLE': count, 'UNAVAILABLE': count}
-    status_map: dict = {}
-    for emp_id, entry_type in rows:
-        if emp_id not in status_map:
-            status_map[emp_id] = {'AVAILABLE': 0, 'UNAVAILABLE': 0}
-        etype = entry_type if entry_type in ('AVAILABLE', 'UNAVAILABLE') else 'UNAVAILABLE'
-        status_map[emp_id][etype] += 1
+    # 2단계: 상세 카운트 (entry_type 컬럼 필요 — 실패 시 폴백)
+    details = []
+    try:
+        rows = (db.query(MonthlyAvailability.employee_id, MonthlyAvailability.entry_type)
+                .filter_by(year=year, month=month).all())
+        status_map: dict = {}
+        for emp_id, entry_type in rows:
+            if emp_id not in status_map:
+                status_map[emp_id] = {'AVAILABLE': 0, 'UNAVAILABLE': 0}
+            etype = entry_type if entry_type in ('AVAILABLE', 'UNAVAILABLE') else 'UNAVAILABLE'
+            status_map[emp_id][etype] += 1
+        details = [
+            {'employee_id': k,
+             'available_count': v['AVAILABLE'],
+             'unavailable_count': v['UNAVAILABLE']}
+            for k, v in status_map.items()
+        ]
+    except Exception:
+        # entry_type 컬럼 없는 구 DB: 상세 카운트 없이 존재 여부만 반환
+        details = [{'employee_id': i, 'available_count': 0, 'unavailable_count': 0}
+                   for i in emp_ids]
 
-    result = []
-    for emp_id, counts in status_map.items():
-        result.append({
-            'employee_id': emp_id,
-            'available_count': counts['AVAILABLE'],
-            'unavailable_count': counts['UNAVAILABLE'],
-        })
-
-    # 기존 API 호환: employee_ids 필드도 유지
     return {
-        'employee_ids': list(status_map.keys()),
-        'details': result,
+        'employee_ids': emp_ids,
+        'details': details,
     }
 
 
@@ -91,6 +98,7 @@ def upsert_monthly_availability(employee_id: int, year: int, month: int,
                 day_of_week=item.day_of_week,
                 entry_type='AVAILABLE',
                 is_working_day=item.is_working_day,
+                store_id=item.store_id,
                 available_start=item.available_start,
                 available_end=item.available_end if item.available_start else None,
                 is_day_unavailable=False,
@@ -160,6 +168,7 @@ def bulk_copy_availability(
             day_of_week=r.day_of_week,
             entry_type=getattr(r, 'entry_type', 'UNAVAILABLE'),
             is_working_day=getattr(r, 'is_working_day', False),
+            store_id=getattr(r, 'store_id', None),
             available_start=getattr(r, 'available_start', None),
             available_end=getattr(r, 'available_end', None),
             is_day_unavailable=r.is_day_unavailable,

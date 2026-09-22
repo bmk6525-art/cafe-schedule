@@ -154,6 +154,15 @@ input:checked + .toggle-track--avail { background: #1a7a4a !important; }
   padding: 3px 10px; border-radius: 10px;
 }
 
+/* 호점 선택 셀 */
+.av-td-store { white-space: nowrap; padding: 4px 4px !important; }
+.av-store-select {
+  font-size: 12px; padding: 3px 6px; border-radius: 6px;
+  border: 1px solid #d0d4e8; background: #f7f8fc; color: #3c3f58;
+  cursor: pointer; max-width: 90px;
+}
+.av-store-select:focus { outline: 2px solid #4f7cff; border-color: transparent; }
+
 /* 시간 셀 */
 .av-td-time { white-space: nowrap; padding: 6px 4px !important; }
 .av-time-wrap { display: inline-flex; align-items: center; gap: 4px; }

@@ -142,6 +142,7 @@ class AvailabilityDayItem(BaseModel):
     day_of_week: DayOfWeek
     # 가능 설정 (신규)
     is_working_day: bool = False          # 이 요일 근무 가능 여부
+    store_id: Optional[int] = None        # NULL = 전체 호점
     available_start: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     available_end: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     # 불가능 설정 (기존 유지)
@@ -166,6 +167,7 @@ class MonthlyAvailabilityResponse(BaseModel):
     day_of_week: DayOfWeek
     entry_type: str = 'UNAVAILABLE'
     is_working_day: bool = False
+    store_id: Optional[int] = None
     available_start: Optional[str] = None
     available_end: Optional[str] = None
     is_day_unavailable: bool

@@ -152,6 +152,7 @@ class MonthlyAvailability(Base):
     entry_type = Column(String(20), default='UNAVAILABLE', nullable=False, server_default='UNAVAILABLE')
     # 가능 필드 (entry_type='AVAILABLE'일 때 사용)
     is_working_day = Column(Boolean, default=False, nullable=False, server_default='0')  # 근무 가능 요일
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=True)  # NULL = 전체 호점
     available_start = Column(String(5), nullable=True)   # 가능 시작시간 "HH:MM"
     available_end = Column(String(5), nullable=True)     # 가능 종료시간 "HH:MM"
     # 불가능 필드 (entry_type='UNAVAILABLE'일 때 사용, 기존 유지)
