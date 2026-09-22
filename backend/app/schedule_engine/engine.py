@@ -59,6 +59,38 @@ class _Slot:
         self.is_cancelled = False
 
 
+class _WorkBlock:
+    """연속된 StaffRequirement 슬롯들을 병합한 근무 단위"""
+    __slots__ = ('start_time', 'end_time', 'required_count', 'hours')
+    def __init__(self, start_time: str, end_time: str, required_count: int):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.required_count = required_count
+        self.hours = (_time_to_min(end_time) - _time_to_min(start_time)) / 60
+
+
+def _build_work_blocks(reqs: list) -> list:
+    """정렬된 StaffRequirement 목록 → WorkBlock 목록
+    병합 조건: 시간적 연속(end[i]==start[i+1]) + required_count 동일
+    """
+    if not reqs:
+        return []
+    cur_start = reqs[0].start_time
+    cur_end = reqs[0].end_time
+    cur_count = reqs[0].required_count
+    result = []
+    for rq in reqs[1:]:
+        if rq.start_time == cur_end and rq.required_count == cur_count:
+            cur_end = rq.end_time
+        else:
+            result.append(_WorkBlock(cur_start, cur_end, cur_count))
+            cur_start = rq.start_time
+            cur_end = rq.end_time
+            cur_count = rq.required_count
+    result.append(_WorkBlock(cur_start, cur_end, cur_count))
+    return result
+
+
 class ScheduleEngine:
 
     def generate(self, year: int, month: int, db: Session) -> dict:
@@ -225,8 +257,8 @@ class ScheduleEngine:
             # 앞 슬롯 배정이 뒤 슬롯 희소성에 미치는 영향을 정확하게 반영한다.
             _day_slots = []
             for _st in stores:
-                for _rq in reqs_map.get((_st.id, dow), []):
-                    _day_slots.append((_st, _rq))
+                for _blk in _build_work_blocks(reqs_map.get((_st.id, dow), [])):
+                    _day_slots.append((_st, _blk))
 
             # _pending: _day_slots의 미처리 슬롯 인덱스 목록
             _pending = list(range(len(_day_slots)))
@@ -236,7 +268,7 @@ class ScheduleEngine:
                 _done_pos = []  # _pending 내 위치 — 이미 covered 된 슬롯
 
                 for _pos, _si in enumerate(_pending):
-                    _st, _rq = _day_slots[_si]
+                    _st, _blk = _day_slots[_si]
 
                     _asd = (
                         confirmed_by_store_date.get((_st.id, work_date), []) +
@@ -245,33 +277,34 @@ class ScheduleEngine:
                     _cov = sum(
                         1 for _s in _asd
                         if not getattr(_s, 'is_cancelled', False)
-                        and _overlaps(_s.start_time, _s.end_time, _rq.start_time, _rq.end_time)
+                        and _overlaps(_s.start_time, _s.end_time, _blk.start_time, _blk.end_time)
                     )
-                    _ned = _rq.required_count - _cov
+                    _ned = _blk.required_count - _cov
                     if _ned <= 0:
                         _done_pos.append(_pos)
                         continue
 
-                    _sh = (_time_to_min(_rq.end_time) - _time_to_min(_rq.start_time)) / 60
+                    _sh = _blk.hours
                     _cands = []
-                    for _pt in part_timers:
-                        if work_date in _pt_assigned_days[_pt.id]:
-                            continue
-                        if _pt.monthly_max_hours is not None:
-                            if pt_hours[_pt.id] + _sh > _pt.monthly_max_hours:
+                    if _blk.hours >= 3.0:
+                        for _pt in part_timers:
+                            if work_date in _pt_assigned_days[_pt.id]:
                                 continue
-                        _eds = (
-                            confirmed_by_emp_date.get((_pt.id, work_date), []) +
-                            new_by_emp_date.get((_pt.id, work_date), [])
-                        )
-                        if self._is_available_cached(
-                                _pt, work_date, dow,
-                                _rq.start_time, _rq.end_time,
-                                av_map, exc_map, _eds,
-                                pt_has_available, _st.id):
-                            _cands.append(_pt)
+                            if _pt.monthly_max_hours is not None:
+                                if pt_hours[_pt.id] + _sh > _pt.monthly_max_hours:
+                                    continue
+                            _eds = (
+                                confirmed_by_emp_date.get((_pt.id, work_date), []) +
+                                new_by_emp_date.get((_pt.id, work_date), [])
+                            )
+                            if self._is_available_cached(
+                                    _pt, work_date, dow,
+                                    _blk.start_time, _blk.end_time,
+                                    av_map, exc_map, _eds,
+                                    pt_has_available, _st.id):
+                                _cands.append(_pt)
 
-                    _scored.append((len(_cands), _si, _ned, _cov, _cands, _st, _rq))
+                    _scored.append((len(_cands), _si, _ned, _cov, _cands, _st, _blk))
 
                 # covered 슬롯 제거 (역순 pop으로 인덱스 안정성 유지)
                 for _pos in sorted(_done_pos, reverse=True):
@@ -283,7 +316,7 @@ class ScheduleEngine:
                 # 1차: 후보자 수 적은 순 (희소 슬롯 우선)
                 # 2차: 원본 슬롯 인덱스 (동점 시 기존 매장·시간 순서 유지)
                 _scored.sort(key=lambda x: (x[0], x[1]))
-                _, _si_c, _ned_c, _cov_c, _cands_c, _st_c, _rq_c = _scored[0]
+                _, _si_c, _ned_c, _cov_c, _cands_c, _st_c, _blk_c = _scored[0]
 
                 _pending.remove(_si_c)
 
@@ -293,23 +326,23 @@ class ScheduleEngine:
                     0 if _p.preferred_store_id == _st_c.id else 1,
                 ))
 
-                _sh_c = (_time_to_min(_rq_c.end_time) - _time_to_min(_rq_c.start_time)) / 60
+                _sh_c = _blk_c.hours
                 _asgn = 0
                 for _pt in _cands_c:
                     if _asgn >= _ned_c:
                         break
-                    _dk = (_pt.id, _st_c.id, work_date, _rq_c.start_time, _rq_c.end_time)
+                    _dk = (_pt.id, _st_c.id, work_date, _blk_c.start_time, _blk_c.end_time)
                     if _dk in inserted_set:
                         continue
                     inserted_set.add(_dk)
 
-                    _slot = _Slot(_rq_c.start_time, _rq_c.end_time)
+                    _slot = _Slot(_blk_c.start_time, _blk_c.end_time)
                     new_by_emp_date[(_pt.id, work_date)].append(_slot)
                     new_by_store_date[(_st_c.id, work_date)].append(_slot)
                     new_rows.append({
                         'employee_id': _pt.id, 'store_id': _st_c.id,
                         'work_date': work_date,
-                        'start_time': _rq_c.start_time, 'end_time': _rq_c.end_time,
+                        'start_time': _blk_c.start_time, 'end_time': _blk_c.end_time,
                         'break_minutes': 0, 'status': ScheduleStatus.DRAFT,
                         'is_cancelled': False, 'memo': None,
                     })
@@ -320,8 +353,8 @@ class ScheduleEngine:
 
                 if _asgn < _ned_c:
                     warnings.append(
-                        f"{work_date} {_st_c.name} {_rq_c.start_time}~{_rq_c.end_time}: "
-                        f"필요 {_rq_c.required_count}명 중 {_cov_c + _asgn}명만 배정됨"
+                        f"{work_date} {_st_c.name} {_blk_c.start_time}~{_blk_c.end_time}: "
+                        f"필요 {_blk_c.required_count}명 중 {_cov_c + _asgn}명만 배정됨"
                     )
 
         # ── 3. 일괄 INSERT (DB 쓰기 1회) ────────────────────────

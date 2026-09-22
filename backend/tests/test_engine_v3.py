@@ -205,11 +205,12 @@ class TestScarcityFirstImprovesFillRate:
 
         초기 후보:
           09-13 → A, B, C = 3명
-          13-18 → A, C = 2명
-          18-23 → A = 1명  ← 가장 희소
+          14-18 → A, C = 2명
+          19-23 → A = 1명  ← 가장 희소
 
-        희소 처리 순서: 18-23 → 13-18 → 09-13
+        희소 처리 순서: 19-23 → 14-18 → 09-13
         → 세 슬롯 모두 충족
+        (슬롯 간 간격으로 WorkBlock 병합 없이 3개의 독립 블록으로 처리)
         """
         store = _store(db)
         pt_a = _pt(db, "A")
@@ -222,8 +223,8 @@ class TestScarcityFirstImprovesFillRate:
         _unavailable(db, pt_c.id, DayOfWeek.WED, start="18:00", end="23:00")
 
         _req(db, store.id, DayOfWeek.WED, "09:00", "13:00")
-        _req(db, store.id, DayOfWeek.WED, "13:00", "18:00")
-        _req(db, store.id, DayOfWeek.WED, "18:00", "23:00")
+        _req(db, store.id, DayOfWeek.WED, "14:00", "18:00")
+        _req(db, store.id, DayOfWeek.WED, "19:00", "23:00")
         db.commit()
 
         result = ScheduleEngine().generate(TEST_YEAR, TEST_MONTH, db)
@@ -355,13 +356,14 @@ class TestCandidateCountRecalculation:
     def test_multiple_rounds_candidate_count_shrinks(self, db):
         """
         3슬롯, 3명 PT, 각 1명씩 필요 → 매 라운드 후보 재계산으로 정확한 배정
+        (슬롯 간 간격으로 WorkBlock 병합 없이 3개의 독립 블록으로 처리)
         """
         store = _store(db)
         pts = [_pt(db, f"PT{i}") for i in range(3)]
 
         _req(db, store.id, DayOfWeek.WED, "09:00", "13:00")
-        _req(db, store.id, DayOfWeek.WED, "13:00", "18:00")
-        _req(db, store.id, DayOfWeek.WED, "18:00", "23:00")
+        _req(db, store.id, DayOfWeek.WED, "14:00", "18:00")
+        _req(db, store.id, DayOfWeek.WED, "19:00", "23:00")
         db.commit()
 
         result = ScheduleEngine().generate(TEST_YEAR, TEST_MONTH, db)
