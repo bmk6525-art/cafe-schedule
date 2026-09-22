@@ -145,6 +145,14 @@ class ScheduleEngine:
         # ── 2. 생성 루프 ──────────────────────────────────────────
 
         pt_hours: dict = {pt.id: 0.0 for pt in part_timers}
+        # CONFIRMED / LOCKED 스케줄의 실제 근무시간을 초기값으로 반영
+        # (DRAFT는 이미 위에서 is_cancelled=True 처리되어 existing_confirmed에 포함되지 않음)
+        _pt_id_set = set(pt_hours.keys())
+        for _s in existing_confirmed:
+            if _s.employee_id in _pt_id_set:
+                pt_hours[_s.employee_id] += (
+                    _time_to_min(_s.end_time) - _time_to_min(_s.start_time)
+                ) / 60
         created = 0
         warnings = []
         days_in_month = calendar.monthrange(year, month)[1]
@@ -206,7 +214,14 @@ class ScheduleEngine:
                         continue
 
                     available_pts = []
+                    _slot_hours = (
+                        _time_to_min(req.end_time) - _time_to_min(req.start_time)
+                    ) / 60
                     for pt in part_timers:
+                        # monthly_max_hours 설정 시 초과 배정 방지
+                        if pt.monthly_max_hours is not None:
+                            if pt_hours[pt.id] + _slot_hours > pt.monthly_max_hours:
+                                continue
                         emp_day_schedules = (
                             confirmed_by_emp_date.get((pt.id, work_date), []) +
                             new_by_emp_date.get((pt.id, work_date), [])
@@ -280,14 +295,21 @@ class ScheduleEngine:
             if is_override:
                 # '가능' 예외: 이 날은 기본적으로 가능 (요일 설정 무시)
                 if exc.unavailable_start and exc.unavailable_end:
-                    # 특정 시간대만 가능 — 제안 슬롯이 해당 윈도우 안에 있어야 함
+                    # 특정 시간대만 가능 — 슬롯이 해당 윈도우 안에 완전히 포함되어야 함
                     avail_s = _time_to_min(exc.unavailable_start)
                     avail_e = _time_to_min(exc.unavailable_end)
                     req_s = _time_to_min(start)
                     req_e = _time_to_min(end)
                     if not (req_s >= avail_s and req_e <= avail_e):
                         return False
-                # 가능 — 요일 설정 건너뜀, 기존 스케줄 충돌만 체크
+                # 요일 설정 건너뜀 → 스케줄 충돌만 확인
+                for s in existing_schedules:
+                    if getattr(s, 'is_cancelled', False):
+                        continue
+                    if _overlaps(start, end, s.start_time, s.end_time):
+                        return False
+                return True
+
             else:
                 # '불가능' 예외
                 if exc.is_day_unavailable:
@@ -295,15 +317,16 @@ class ScheduleEngine:
                 if exc.unavailable_start and exc.unavailable_end:
                     if _overlaps(start, end, exc.unavailable_start, exc.unavailable_end):
                         return False
-                # 이 예외가 이 시간대를 제한하지 않음
-
-            # 특정 날짜 예외가 있으면 요일 설정 건너뜀 → 기존 스케줄 충돌만 확인
-            for s in existing_schedules:
-                if getattr(s, 'is_cancelled', False):
-                    continue
-                if _overlaps(start, end, s.start_time, s.end_time):
-                    return False
-            return True
+                    # 이 예외의 시간 범위가 이 슬롯에 해당하지 않음
+                    # 예외 레코드가 이 날짜를 명시적으로 정의 → 요일 설정 건너뜀
+                    for s in existing_schedules:
+                        if getattr(s, 'is_cancelled', False):
+                            continue
+                        if _overlaps(start, end, s.start_time, s.end_time):
+                            return False
+                    return True
+                # 예외 레코드에 실질적인 가용성 정보가 없음 (빈 레코드)
+                # → 요일 기본 설정으로 fall-through
 
         # 2. 월별 요일 기본 설정
         av = av_map.get((pt.id, dow))
