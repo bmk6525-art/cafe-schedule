@@ -372,8 +372,10 @@ class ScheduleEngine:
                 # '불가능' 예외
                 if exc.is_day_unavailable:
                     return False
-                if exc.unavailable_start and exc.unavailable_end:
-                    if _overlaps(start, end, exc.unavailable_start, exc.unavailable_end):
+                if exc.unavailable_start:
+                    # 종료 미입력 → '23:59' (마감까지)
+                    exc_end = exc.unavailable_end if exc.unavailable_end else '23:59'
+                    if _overlaps(start, end, exc.unavailable_start, exc_end):
                         return False
                     # 예외 레코드가 이 날짜를 명시적으로 정의 → 요일 설정 건너뜀
                     for s in existing_schedules:
@@ -399,13 +401,14 @@ class ScheduleEngine:
             # 이 요일에 AVAILABLE 레코드 있음 → 근무 가능 요일
             av_start = getattr(av_avail, 'available_start', None)
             av_end = getattr(av_avail, 'available_end', None)
-            if av_start and av_end:
-                # 가능 시간 범위 지정: 슬롯이 범위 안에 완전히 포함되어야 함
+            if av_start:
+                # 종료 미입력 → '23:59' (마감까지)
+                effective_av_end = av_end if av_end else '23:59'
                 avail_s = _time_to_min(av_start)
-                avail_e = _time_to_min(av_end)
+                avail_e = _time_to_min(effective_av_end)
                 if not (req_s >= avail_s and req_e <= avail_e):
                     return False
-            # else: is_working_day만 → 전체 운영시간 가능 (시간 제한 없음)
+            # av_start 없음(is_working_day만) → 전체 운영시간 가능
         elif pt.id in pt_has_available:
             # 이 직원은 다른 요일에 AVAILABLE 레코드가 있지만 이 요일에는 없음
             # → 가능 요일이 아님 (불가능)
@@ -416,8 +419,10 @@ class ScheduleEngine:
         if av_unavail is not None:
             if av_unavail.is_day_unavailable:
                 return False
-            if av_unavail.unavailable_start and av_unavail.unavailable_end:
-                if _overlaps(start, end, av_unavail.unavailable_start, av_unavail.unavailable_end):
+            if av_unavail.unavailable_start:
+                # 종료 미입력 → '23:59' (마감까지)
+                effective_unav_end = av_unavail.unavailable_end if av_unavail.unavailable_end else '23:59'
+                if _overlaps(start, end, av_unavail.unavailable_start, effective_unav_end):
                     return False
 
         # ── 3. 이미 배정된 스케줄 충돌 ─────────────────────────────

@@ -310,21 +310,23 @@ export default function Employees() {
                   </td>
                   <td>
                     {emp.employee_type === 'PART_TIMER' && emp.is_active ? (() => {
-                      const detail = availDetails[emp.id];
                       const hasAny = availStatusIds.includes(emp.id);
-                      if (!hasAny || !detail) {
+                      if (!hasAny) {
                         return <span className="av-badge av-badge--missing">미입력</span>;
                       }
-                      const { available_count: ac, unavailable_count: uc } = detail;
+                      const detail = availDetails[emp.id];
+                      const ac = detail?.available_count ?? 0;
+                      const uc = detail?.unavailable_count ?? 0;
                       const parts: string[] = [];
                       if (ac > 0) parts.push(`가능 ${ac}`);
                       if (uc > 0) parts.push(`불가 ${uc}`);
+                      const label = parts.length > 0 ? `입력됨 (${parts.join(' / ')})` : '입력됨';
                       return (
                         <span
-                          className={`av-badge av-badge--ok av-badge--detail`}
+                          className="av-badge av-badge--ok av-badge--detail"
                           title={`가능 ${ac}개 / 불가능 ${uc}개`}
                         >
-                          입력됨 ({parts.join(' / ')})
+                          {label}
                         </span>
                       );
                     })() : (
@@ -400,7 +402,7 @@ export default function Employees() {
           employee={avTarget}
           year={avYear}
           month={avMonth}
-          onClose={() => setAvTarget(null)}
+          onClose={() => { setAvTarget(null); loadAvailStatus(); }}
         />
       )}
 

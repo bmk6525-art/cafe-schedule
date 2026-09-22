@@ -254,20 +254,53 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
                             <span className="toggle-track toggle-track--avail" />
                           </label>
                         </td>
-                        <td>
-                          <input
-                            type="time" step="300" className="wp-time-input"
-                            value={row.available_start}
-                            onChange={(e) => updateRow(row.day_of_week, 'available_start', e.target.value)}
-                          />
+                          {/* 가능 시작 */}
+                        <td className="av-td-time">
+                          {row.available_start ? (
+                            <div className="av-time-wrap">
+                              <TimeSelect
+                                value={row.available_start}
+                                onChange={(v) => updateRow(row.day_of_week, 'available_start', v)}
+                              />
+                              <button
+                                className="av-clear-btn"
+                                onClick={() => {
+                                  updateRow(row.day_of_week, 'available_start', '');
+                                  updateRow(row.day_of_week, 'available_end', '');
+                                }}
+                                title="시간 지우기"
+                              >×</button>
+                            </div>
+                          ) : (
+                            <button
+                              className="av-set-btn"
+                              onClick={() => updateRow(row.day_of_week, 'available_start', '09:00')}
+                            >+ 시간</button>
+                          )}
                         </td>
-                        <td>
-                          <input
-                            type="time" step="300" className="wp-time-input"
-                            value={row.available_end}
-                            disabled={!row.available_start}
-                            onChange={(e) => updateRow(row.day_of_week, 'available_end', e.target.value)}
-                          />
+                        {/* 가능 종료 */}
+                        <td className="av-td-time">
+                          {row.available_start ? (
+                            row.available_end ? (
+                              <div className="av-time-wrap">
+                                <TimeSelect
+                                  value={row.available_end}
+                                  onChange={(v) => updateRow(row.day_of_week, 'available_end', v)}
+                                />
+                                <button
+                                  className="av-close-btn"
+                                  onClick={() => updateRow(row.day_of_week, 'available_end', '')}
+                                  title="마감까지로 변경"
+                                >마감</button>
+                              </div>
+                            ) : (
+                              <button
+                                className="av-until-close"
+                                onClick={() => updateRow(row.day_of_week, 'available_end', '18:00')}
+                                title="클릭하면 종료 시간 직접 설정"
+                              >마감까지 ✎</button>
+                            )
+                          ) : <span className="av-time-na">—</span>}
                         </td>
                         {/* 불가능 설정 */}
                         <td className="wp-toggle">
@@ -280,21 +313,57 @@ export default function AvailabilityModal({ employee, year, month, onClose }: Pr
                             <span className="toggle-track" />
                           </label>
                         </td>
-                        <td>
-                          <input
-                            type="time" step="300" className="wp-time-input"
-                            value={row.unavailable_start}
-                            disabled={row.is_day_unavailable}
-                            onChange={(e) => updateRow(row.day_of_week, 'unavailable_start', e.target.value)}
-                          />
+                        {/* 불가능 시작 */}
+                        <td className="av-td-time">
+                          {row.is_day_unavailable ? (
+                            <span className="av-time-na">종일</span>
+                          ) : row.unavailable_start ? (
+                            <div className="av-time-wrap">
+                              <TimeSelect
+                                value={row.unavailable_start}
+                                onChange={(v) => updateRow(row.day_of_week, 'unavailable_start', v)}
+                              />
+                              <button
+                                className="av-clear-btn"
+                                onClick={() => {
+                                  updateRow(row.day_of_week, 'unavailable_start', '');
+                                  updateRow(row.day_of_week, 'unavailable_end', '');
+                                }}
+                                title="시간 지우기"
+                              >×</button>
+                            </div>
+                          ) : (
+                            <button
+                              className="av-set-btn av-set-btn--unavail"
+                              onClick={() => updateRow(row.day_of_week, 'unavailable_start', '13:00')}
+                            >+ 시간</button>
+                          )}
                         </td>
-                        <td>
-                          <input
-                            type="time" step="300" className="wp-time-input"
-                            value={row.unavailable_end}
-                            disabled={row.is_day_unavailable || !row.unavailable_start}
-                            onChange={(e) => updateRow(row.day_of_week, 'unavailable_end', e.target.value)}
-                          />
+                        {/* 불가능 종료 */}
+                        <td className="av-td-time">
+                          {row.is_day_unavailable ? (
+                            <span className="av-time-na">종일</span>
+                          ) : row.unavailable_start ? (
+                            row.unavailable_end ? (
+                              <div className="av-time-wrap">
+                                <TimeSelect
+                                  value={row.unavailable_end}
+                                  onChange={(v) => updateRow(row.day_of_week, 'unavailable_end', v)}
+                                />
+                                <button
+                                  className="av-close-btn av-close-btn--unavail"
+                                  onClick={() => updateRow(row.day_of_week, 'unavailable_end', '')}
+                                  title="마감까지로 변경"
+                                >마감</button>
+                              </div>
+                            ) : (
+                              <button
+                                className="av-until-close av-until-close--unavail"
+                                onClick={() => updateRow(row.day_of_week, 'unavailable_end', '18:00')}
+                                title="클릭하면 종료 시간 직접 설정"
+                              >마감까지 ✎</button>
+                            )
+                          ) : <span className="av-time-na">—</span>}
                         </td>
                         <td>
                           <input

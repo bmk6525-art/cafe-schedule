@@ -153,3 +153,51 @@ input:checked + .toggle-track--avail { background: #1a7a4a !important; }
   background: #ffe0e0; color: #c0392b;
   padding: 3px 10px; border-radius: 10px;
 }
+
+/* 시간 셀 */
+.av-td-time { white-space: nowrap; padding: 6px 4px !important; }
+.av-time-wrap { display: inline-flex; align-items: center; gap: 4px; }
+.av-time-na { color: #c8cad8; font-size: 13px; }
+
+/* 시간 지우기 (×) 버튼 */
+.av-clear-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  border: none; border-radius: 50%;
+  background: #e8eaf0; color: #6b6f8a;
+  font-size: 12px; cursor: pointer; line-height: 1;
+  flex-shrink: 0;
+}
+.av-clear-btn:hover { background: #fdeaea; color: #c0392b; }
+
+/* 종료 → 마감 버튼 */
+.av-close-btn {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 6px; border-radius: 6px;
+  border: 1px solid #b8d0ff; background: #eef3ff; color: #4f7cff;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.av-close-btn:hover { background: #d8e8ff; }
+.av-close-btn--unavail { border-color: #ffb8b8; background: #fff0f0; color: #c0392b; }
+.av-close-btn--unavail:hover { background: #ffe0e0; }
+
+/* 마감까지 칩 */
+.av-until-close {
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: 6px;
+  border: 1.5px dashed #b8d0ff; background: #f4f8ff; color: #4f7cff;
+  cursor: pointer; white-space: nowrap;
+}
+.av-until-close:hover { background: #dde8ff; border-color: #4f7cff; }
+.av-until-close--unavail { border-color: #ffb8b8; background: #fff5f5; color: #c0392b; }
+.av-until-close--unavail:hover { background: #ffe8e8; border-color: #c0392b; }
+
+/* + 시간 추가 버튼 */
+.av-set-btn {
+  font-size: 11px; padding: 3px 8px; border-radius: 6px;
+  border: 1.5px dashed #c0d8ff; background: transparent; color: #8b9fc8;
+  cursor: pointer; white-space: nowrap;
+}
+.av-set-btn:hover { background: #eef3ff; color: #4f7cff; border-color: #4f7cff; }
+.av-set-btn--unavail { border-color: #ffc0c0; color: #c8a0a0; }
+.av-set-btn--unavail:hover { background: #fff0f0; color: #c0392b; border-color: #c0392b; }
