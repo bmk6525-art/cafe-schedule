@@ -145,7 +145,9 @@ class ScheduleEngine:
         # ── 2. 생성 루프 ──────────────────────────────────────────
 
         pt_hours: dict = {pt.id: 0.0 for pt in part_timers}
-        # CONFIRMED / LOCKED 스케줄의 실제 근무시간을 초기값으로 반영
+        # 파트타이머 하루 1회 근무 제한용 날짜 추적 set
+        _pt_assigned_days: dict = {pt.id: set() for pt in part_timers}
+        # CONFIRMED / LOCKED 스케줄의 실제 근무시간과 근무일을 동시에 반영
         # (DRAFT는 이미 위에서 is_cancelled=True 처리되어 existing_confirmed에 포함되지 않음)
         _pt_id_set = set(pt_hours.keys())
         for _s in existing_confirmed:
@@ -153,6 +155,7 @@ class ScheduleEngine:
                 pt_hours[_s.employee_id] += (
                     _time_to_min(_s.end_time) - _time_to_min(_s.start_time)
                 ) / 60
+                _pt_assigned_days[_s.employee_id].add(_s.work_date)
         created = 0
         warnings = []
         days_in_month = calendar.monthrange(year, month)[1]
@@ -218,6 +221,10 @@ class ScheduleEngine:
                         _time_to_min(req.end_time) - _time_to_min(req.start_time)
                     ) / 60
                     for pt in part_timers:
+                        # 하루 1회 근무 제한: 해당 날짜에 이미 배정된 파트타이머 제외
+                        # (CONFIRMED/LOCKED 기존 스케줄 및 이번 generate() 중 생성한 DRAFT 모두 포함)
+                        if work_date in _pt_assigned_days[pt.id]:
+                            continue
                         # monthly_max_hours 설정 시 초과 배정 방지
                         if pt.monthly_max_hours is not None:
                             if pt_hours[pt.id] + _slot_hours > pt.monthly_max_hours:
@@ -258,6 +265,7 @@ class ScheduleEngine:
                         })
                         hours = (_time_to_min(req.end_time) - _time_to_min(req.start_time)) / 60
                         pt_hours[pt.id] += hours
+                        _pt_assigned_days[pt.id].add(work_date)
                         created += 1
                         assigned += 1
 
