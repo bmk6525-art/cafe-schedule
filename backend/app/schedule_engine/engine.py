@@ -9,6 +9,7 @@ HARD CONSTRAINT (반드시 준수):
   5. 동일 직원 동시에 여러 매장 금지
   6. 정규직 주 40시간 준수
   7. 정규직 주 5일 준수
+  8. 파트타이머 하루 최소 근무시간 3시간 (3시간 미만 슬롯 미배정)
 
 SOFT CONSTRAINT (가능하면 준수):
   1. 매장별 필요인원 부족 최소화
@@ -246,6 +247,10 @@ class ScheduleEngine:
                         continue
 
                     _sh = (_time_to_min(_rq.end_time) - _time_to_min(_rq.start_time)) / 60
+                    # 하루 최소 근무시간 3시간 미만 슬롯은 파트타이머 미배정
+                    if _sh < 3.0:
+                        _done_pos.append(_pos)
+                        continue
                     _cands = []
                     for _pt in part_timers:
                         if work_date in _pt_assigned_days[_pt.id]:
