@@ -80,9 +80,16 @@ export default function AvailabilityModal({ employee, year, month, stores, onSav
       const avData: any[] = avRes.data;
 
       // AVAILABLE / UNAVAILABLE 레코드를 요일별로 병합
+      // entry_type === 'AVAILABLE'이 우선, 없으면 is_working_day/available_start 필드로 판별 (구 DB 호환)
       setRows(DAY_ORDER.map((d) => {
-        const avail = avData.find((r: any) => r.day_of_week === d && r.entry_type === 'AVAILABLE');
-        const unavail = avData.find((r: any) => r.day_of_week === d && r.entry_type !== 'AVAILABLE');
+        const allForDay = avData.filter((r: any) => r.day_of_week === d);
+        const avail = allForDay.find((r: any) =>
+          r.entry_type === 'AVAILABLE' ||
+          (!r.entry_type && (r.is_working_day || r.available_start))
+        );
+        const unavail = allForDay.find((r: any) =>
+          r !== avail && (r.entry_type === 'UNAVAILABLE' || r.is_day_unavailable || r.unavailable_start)
+        );
         return {
           day_of_week: d,
           is_working_day: avail?.is_working_day ?? false,
@@ -96,6 +103,8 @@ export default function AvailabilityModal({ employee, year, month, stores, onSav
         };
       }));
       setExceptions(_parseExceptions(exRes.data));
+    } catch (e: any) {
+      setError(`데이터 로드 실패: ${e?.response?.data?.detail ?? e?.message ?? '알 수 없는 오류'}`);
     } finally {
       setLoading(false);
     }

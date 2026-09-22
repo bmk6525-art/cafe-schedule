@@ -56,7 +56,7 @@ def _run_migrations():
             if 'is_working_day' not in ma_cols:
                 conn.execute(text(
                     "ALTER TABLE monthly_availability "
-                    "ADD COLUMN is_working_day BOOLEAN NOT NULL DEFAULT 0"
+                    "ADD COLUMN is_working_day BOOLEAN NOT NULL DEFAULT FALSE"
                 ))
             if 'available_start' not in ma_cols:
                 conn.execute(text(
