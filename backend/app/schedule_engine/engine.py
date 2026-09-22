@@ -199,81 +199,110 @@ class ScheduleEngine:
                 })
                 created += 1
 
-            # ── 파트타이머 배정 ──
-            for store in stores:
-                reqs = reqs_map.get((store.id, dow), [])
-                for req in reqs:
-                    all_store_day = (
-                        confirmed_by_store_date.get((store.id, work_date), []) +
-                        new_by_store_date.get((store.id, work_date), [])
+            # ── 파트타이머 배정 (희소 슬롯 우선) ──
+            # 이 날짜의 모든 (매장, 슬롯) 쌍을 수집한 뒤,
+            # 배정 가능 후보자가 가장 적은 슬롯부터 처리하여 전체 충족률을 높인다.
+            # 슬롯을 하나 처리할 때마다 후보자 수를 재계산하므로
+            # 앞 슬롯 배정이 뒤 슬롯 희소성에 미치는 영향을 정확하게 반영한다.
+            _day_slots = []
+            for _st in stores:
+                for _rq in reqs_map.get((_st.id, dow), []):
+                    _day_slots.append((_st, _rq))
+
+            # _pending: _day_slots의 미처리 슬롯 인덱스 목록
+            _pending = list(range(len(_day_slots)))
+
+            while _pending:
+                _scored = []    # (후보자수, 원본인덱스, needed, covered, 후보자목록, store, req)
+                _done_pos = []  # _pending 내 위치 — 이미 covered 된 슬롯
+
+                for _pos, _si in enumerate(_pending):
+                    _st, _rq = _day_slots[_si]
+
+                    _asd = (
+                        confirmed_by_store_date.get((_st.id, work_date), []) +
+                        new_by_store_date.get((_st.id, work_date), [])
                     )
-                    covered = sum(
-                        1 for s in all_store_day
-                        if not getattr(s, 'is_cancelled', False)
-                        and _overlaps(s.start_time, s.end_time, req.start_time, req.end_time)
+                    _cov = sum(
+                        1 for _s in _asd
+                        if not getattr(_s, 'is_cancelled', False)
+                        and _overlaps(_s.start_time, _s.end_time, _rq.start_time, _rq.end_time)
                     )
-                    needed = req.required_count - covered
-                    if needed <= 0:
+                    _ned = _rq.required_count - _cov
+                    if _ned <= 0:
+                        _done_pos.append(_pos)
                         continue
 
-                    available_pts = []
-                    _slot_hours = (
-                        _time_to_min(req.end_time) - _time_to_min(req.start_time)
-                    ) / 60
-                    for pt in part_timers:
-                        # 하루 1회 근무 제한: 해당 날짜에 이미 배정된 파트타이머 제외
-                        # (CONFIRMED/LOCKED 기존 스케줄 및 이번 generate() 중 생성한 DRAFT 모두 포함)
-                        if work_date in _pt_assigned_days[pt.id]:
+                    _sh = (_time_to_min(_rq.end_time) - _time_to_min(_rq.start_time)) / 60
+                    _cands = []
+                    for _pt in part_timers:
+                        if work_date in _pt_assigned_days[_pt.id]:
                             continue
-                        # monthly_max_hours 설정 시 초과 배정 방지
-                        if pt.monthly_max_hours is not None:
-                            if pt_hours[pt.id] + _slot_hours > pt.monthly_max_hours:
+                        if _pt.monthly_max_hours is not None:
+                            if pt_hours[_pt.id] + _sh > _pt.monthly_max_hours:
                                 continue
-                        emp_day_schedules = (
-                            confirmed_by_emp_date.get((pt.id, work_date), []) +
-                            new_by_emp_date.get((pt.id, work_date), [])
+                        _eds = (
+                            confirmed_by_emp_date.get((_pt.id, work_date), []) +
+                            new_by_emp_date.get((_pt.id, work_date), [])
                         )
                         if self._is_available_cached(
-                                pt, work_date, dow,
-                                req.start_time, req.end_time,
-                                av_map, exc_map, emp_day_schedules):
-                            available_pts.append(pt)
+                                _pt, work_date, dow,
+                                _rq.start_time, _rq.end_time,
+                                av_map, exc_map, _eds):
+                            _cands.append(_pt)
 
-                    available_pts.sort(key=lambda p: (
-                        pt_hours[p.id],
-                        0 if p.preferred_store_id == store.id else 1,
-                    ))
+                    _scored.append((len(_cands), _si, _ned, _cov, _cands, _st, _rq))
 
-                    assigned = 0
-                    for pt in available_pts:
-                        if assigned >= needed:
-                            break
-                        dup_key = (pt.id, store.id, work_date, req.start_time, req.end_time)
-                        if dup_key in inserted_set:
-                            continue
-                        inserted_set.add(dup_key)
+                # covered 슬롯 제거 (역순 pop으로 인덱스 안정성 유지)
+                for _pos in sorted(_done_pos, reverse=True):
+                    _pending.pop(_pos)
 
-                        slot = _Slot(req.start_time, req.end_time)
-                        new_by_emp_date[(pt.id, work_date)].append(slot)
-                        new_by_store_date[(store.id, work_date)].append(slot)
-                        new_rows.append({
-                            'employee_id': pt.id, 'store_id': store.id,
-                            'work_date': work_date,
-                            'start_time': req.start_time, 'end_time': req.end_time,
-                            'break_minutes': 0, 'status': ScheduleStatus.DRAFT,
-                            'is_cancelled': False, 'memo': None,
-                        })
-                        hours = (_time_to_min(req.end_time) - _time_to_min(req.start_time)) / 60
-                        pt_hours[pt.id] += hours
-                        _pt_assigned_days[pt.id].add(work_date)
-                        created += 1
-                        assigned += 1
+                if not _scored:
+                    break   # 남은 슬롯이 모두 covered
 
-                    if assigned < needed:
-                        warnings.append(
-                            f"{work_date} {store.name} {req.start_time}~{req.end_time}: "
-                            f"필요 {req.required_count}명 중 {covered + assigned}명만 배정됨"
-                        )
+                # 1차: 후보자 수 적은 순 (희소 슬롯 우선)
+                # 2차: 원본 슬롯 인덱스 (동점 시 기존 매장·시간 순서 유지)
+                _scored.sort(key=lambda x: (x[0], x[1]))
+                _, _si_c, _ned_c, _cov_c, _cands_c, _st_c, _rq_c = _scored[0]
+
+                _pending.remove(_si_c)
+
+                # 후보자 정렬: 기존 방식 유지 (누적 근무시간 적은 순 → 선호 매장 우선)
+                _cands_c.sort(key=lambda _p: (
+                    pt_hours[_p.id],
+                    0 if _p.preferred_store_id == _st_c.id else 1,
+                ))
+
+                _sh_c = (_time_to_min(_rq_c.end_time) - _time_to_min(_rq_c.start_time)) / 60
+                _asgn = 0
+                for _pt in _cands_c:
+                    if _asgn >= _ned_c:
+                        break
+                    _dk = (_pt.id, _st_c.id, work_date, _rq_c.start_time, _rq_c.end_time)
+                    if _dk in inserted_set:
+                        continue
+                    inserted_set.add(_dk)
+
+                    _slot = _Slot(_rq_c.start_time, _rq_c.end_time)
+                    new_by_emp_date[(_pt.id, work_date)].append(_slot)
+                    new_by_store_date[(_st_c.id, work_date)].append(_slot)
+                    new_rows.append({
+                        'employee_id': _pt.id, 'store_id': _st_c.id,
+                        'work_date': work_date,
+                        'start_time': _rq_c.start_time, 'end_time': _rq_c.end_time,
+                        'break_minutes': 0, 'status': ScheduleStatus.DRAFT,
+                        'is_cancelled': False, 'memo': None,
+                    })
+                    pt_hours[_pt.id] += _sh_c
+                    _pt_assigned_days[_pt.id].add(work_date)
+                    created += 1
+                    _asgn += 1
+
+                if _asgn < _ned_c:
+                    warnings.append(
+                        f"{work_date} {_st_c.name} {_rq_c.start_time}~{_rq_c.end_time}: "
+                        f"필요 {_rq_c.required_count}명 중 {_cov_c + _asgn}명만 배정됨"
+                    )
 
         # ── 3. 일괄 INSERT (DB 쓰기 1회) ────────────────────────
         if new_rows:
