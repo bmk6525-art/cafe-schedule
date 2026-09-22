@@ -1,13 +1,13 @@
 """
-스케줄 엔진 6차 테스트 — Segment 기반 per-segment coverage 검증
+스케줄 엔진 6차 테스트 — WorkBlock v1 정확성 검증
 
 핵심 검증:
-  - 동일 count 인접 슬롯: 정규직 1 + 필요 count=2 → PT 1명
-  - 다른 count 인접 슬롯: 정규직 1 + Segment(2)+Segment(3) → PT 2명
-  - 후보자 부족 시 경고 발생
-  - 2시간 블록 → 배정 불가, 경고
-  - required_count=3, 정규직 1 → PT 2명만 (총합 3 달성 시 중단)
-  - 하루 1회 제한: 블록A에 배정된 PT는 블록B 제외
+  - 동일 count 인접 슬롯 병합 → PT 근무시간 = 병합 범위
+  - 다른 count 인접 슬롯 → 별도 WorkBlock → PT 근무시간 = 실제 필요한 슬롯만
+  - required_count에서 기존 coverage(정규직 포함) 차감 후 필요 PT 수 결정
+  - 인원 부족 시 경고
+  - required_count 충족 시 초과 배정 없음
+  - 하루 1회 제한
 
 날짜 기준: 2026-10-07 = Wednesday
 """
@@ -64,7 +64,7 @@ def _pt(db, name, max_hours=None) -> Employee:
 
 
 def _regular(db, store_id, name="정규직", dow=DayOfWeek.WED,
-             start="09:00", end="15:00") -> Employee:
+             start="09:00", end="18:00") -> Employee:
     e = Employee(
         name=name, employee_type=EmployeeType.REGULAR,
         hourly_wage=15000,
@@ -113,24 +113,23 @@ def _pt_drafts(db, pt_ids, work_date=None):
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Test 1: 동일 count 인접 슬롯 + 정규직 1 → PT 1명
+# Test 1: 동일 count 인접 슬롯 병합 → PT 근무시간 = 병합 범위
 # ═══════════════════════════════════════════════════════════════════════
 
-class TestSegmentCoverageSameCount:
+class TestSameCountMerge:
 
-    def test_same_count_segments_regular_covers_one(self, db):
+    def test_same_count_adjacent_pt_covers_merged_range(self, db):
         """
-        09:00-12:00 (count=2) + 12:00-15:00 (count=2) + 정규직 1명
-        → 병합: WorkBlock 09:00-15:00, Segment 09:00-15:00 (count=2, merged)
-        → 정규직 cov=1, ned_block = max(2-1) = 1
-        → PT 1명 배정
+        09:00-12:00 (count=2) + 12:00-15:00 (count=2) + 정규직(09-15)
+        → 동일 count 인접 → WorkBlock 09:00-15:00 (6h, count=2)
+        → 정규직 cov=1, ned=1
+        → PT 1명 배정, 근무시간 = 09:00~15:00 (병합 범위 전체)
 
         정규직 DRAFT 1 + PT DRAFT 1 = 총 2 DRAFT
         """
         store = _store(db)
         reg = _regular(db, store.id, start="09:00", end="15:00")
-        pt1 = _pt(db, "PT1")
-        pt2 = _pt(db, "PT2")  # 여분
+        pts = [_pt(db, f"PT{i}") for i in range(3)]
 
         _req(db, store.id, DayOfWeek.WED, "09:00", "12:00", count=2)
         _req(db, store.id, DayOfWeek.WED, "12:00", "15:00", count=2)
@@ -138,78 +137,108 @@ class TestSegmentCoverageSameCount:
 
         result = ScheduleEngine().generate(TEST_YEAR, TEST_MONTH, db)
 
-        oct7_pt = _pt_drafts(db, [pt1.id, pt2.id], work_date=OCT_7)
+        oct7_pt = _pt_drafts(db, [p.id for p in pts], work_date=OCT_7)
         assert len(oct7_pt) == 1, (
-            f"정규직 1 + count=2 → PT 1명만 필요. "
+            f"count=2 병합 블록, 정규직 1 → PT 1명만 필요. "
             f"실제 PT DRAFT={len(oct7_pt)}, warnings={result['warnings']}"
         )
         assert not result["warnings"]
+        assert oct7_pt[0].start_time == "09:00"
+        assert oct7_pt[0].end_time == "15:00", "PT 근무시간 = 병합 블록 전체 범위"
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Test 2: 다른 count 인접 슬롯 + 정규직 1 → PT 2명
+# Test 2: 다른 count 인접 슬롯 → PT 시간 = 실제 필요한 슬롯만
 # ═══════════════════════════════════════════════════════════════════════
 
-class TestSegmentCoverageDiffCount:
+class TestDifferentCountSeparateBlocks:
 
-    def test_diff_count_segments_regular_covers_first(self, db):
+    def test_pt_assigned_only_to_understaffed_slot(self, db):
         """
-        09:00-12:00 (count=2) + 12:00-15:00 (count=3) + 정규직 1명
-        → WorkBlock 09:00-15:00, Segments: [09-12(2), 12-15(3)]
-        → 정규직 09:00-15:00 → 각 Segment cov=1
-        → ned_block = max(2-1, 3-1) = max(1, 2) = 2
-        → PT 2명 배정 (각각 09:00-15:00)
+        09:00-12:00 (count=1) + 12:00-15:00 (count=2) + 정규직(09-15)
+        → 다른 count → 별도 WorkBlock
+          BlockA: 09:00-12:00 (count=1): 정규직 cov=1, ned=0 → PT 불필요
+          BlockB: 12:00-15:00 (count=2): 정규직 cov=1, ned=1 → PT 1명
+
+        PT 1명, 근무시간 = 12:00~15:00 (09:00~15:00이 되면 안 됨)
         """
         store = _store(db)
         reg = _regular(db, store.id, start="09:00", end="15:00")
-        pts = [_pt(db, f"PT{i}") for i in range(3)]  # 3명 중 2명만 필요
+        pts = [_pt(db, f"PT{i}") for i in range(3)]
 
-        _req(db, store.id, DayOfWeek.WED, "09:00", "12:00", count=2)
-        _req(db, store.id, DayOfWeek.WED, "12:00", "15:00", count=3)
+        _req(db, store.id, DayOfWeek.WED, "09:00", "12:00", count=1)
+        _req(db, store.id, DayOfWeek.WED, "12:00", "15:00", count=2)
         db.commit()
 
         result = ScheduleEngine().generate(TEST_YEAR, TEST_MONTH, db)
 
         oct7_pt = _pt_drafts(db, [p.id for p in pts], work_date=OCT_7)
-        assert len(oct7_pt) == 2, (
-            f"ned_block=2 → PT 2명 배정. "
-            f"실제 PT DRAFT={len(oct7_pt)}, warnings={result['warnings']}"
+        assert len(oct7_pt) == 1, (
+            f"BlockA 충족, BlockB ned=1 → PT 1명. "
+            f"실제={len(oct7_pt)}, warnings={result['warnings']}"
         )
         assert not result["warnings"]
-        # 두 PT 모두 블록 전체 범위 근무
-        assert all(d.start_time == "09:00" and d.end_time == "15:00" for d in oct7_pt)
+        assert oct7_pt[0].start_time == "12:00", "PT는 실제 필요한 BlockB 시간으로만 배정"
+        assert oct7_pt[0].end_time == "15:00"
 
-
-# ═══════════════════════════════════════════════════════════════════════
-# Test 3: 정규직 1 + 후보 PT 1명뿐 → PT 1명 배정 + 경고
-# ═══════════════════════════════════════════════════════════════════════
-
-class TestSegmentCoverageShortfall:
-
-    def test_only_one_pt_available_generates_warning(self, db):
+    def test_three_slots_pt_covers_only_middle_slot(self, db):
         """
-        09:00-12:00 (count=2) + 12:00-15:00 (count=3) + 정규직 1명
-        + 가용 PT 1명뿐 → PT 1명 배정 후 ned_block=1 잔여 → 경고
+        09:00-12:00 (count=1) + 12:00-15:00 (count=2) + 15:00-18:00 (count=1)
+        + 정규직(09-18)
+        → 3개 별도 WorkBlock
+          09-12(1): 정규직 cov=1, ned=0
+          12-15(2): 정규직 cov=1, ned=1 → PT 1명 (12:00~15:00)
+          15-18(1): 정규직 cov=1, ned=0
 
-        ned_block 초기=2, PT 1명 배정 후=1 → 후보 없음 → 경고
+        PT 1명, 근무시간 = 12:00~15:00
+        절대로 09:00~18:00 전체가 되어서는 안 됨
         """
         store = _store(db)
-        reg = _regular(db, store.id, start="09:00", end="15:00")
-        pt1 = _pt(db, "PT1")  # 단 1명
+        reg = _regular(db, store.id, start="09:00", end="18:00")
+        pts = [_pt(db, f"PT{i}") for i in range(3)]
 
-        _req(db, store.id, DayOfWeek.WED, "09:00", "12:00", count=2)
-        _req(db, store.id, DayOfWeek.WED, "12:00", "15:00", count=3)
+        _req(db, store.id, DayOfWeek.WED, "09:00", "12:00", count=1)
+        _req(db, store.id, DayOfWeek.WED, "12:00", "15:00", count=2)
+        _req(db, store.id, DayOfWeek.WED, "15:00", "18:00", count=1)
         db.commit()
 
         result = ScheduleEngine().generate(TEST_YEAR, TEST_MONTH, db)
 
-        oct7_pt = _pt_drafts(db, [pt1.id], work_date=OCT_7)
+        oct7_pt = _pt_drafts(db, [p.id for p in pts], work_date=OCT_7)
         assert len(oct7_pt) == 1, (
-            f"가용 PT 1명 → 1 DRAFT. 실제={len(oct7_pt)}"
+            f"가운데 블록만 ned=1 → PT 1명. "
+            f"실제={len(oct7_pt)}, warnings={result['warnings']}"
         )
+        assert not result["warnings"]
+        assert oct7_pt[0].start_time == "12:00", "PT 근무 시작 = 실제 필요 시작"
+        assert oct7_pt[0].end_time == "15:00", "PT 근무 종료 = 실제 필요 종료"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Test 3: 후보 부족 시 경고
+# ═══════════════════════════════════════════════════════════════════════
+
+class TestInsufficientCandidates:
+
+    def test_no_pt_available_generates_warning(self, db):
+        """
+        09:00-13:00 (count=2) + 정규직(09-13) + PT 0명
+        → ned=1, 후보 없음 → 경고
+        """
+        store = _store(db)
+        _regular(db, store.id, start="09:00", end="13:00")
+        # PT 없음
+
+        _req(db, store.id, DayOfWeek.WED, "09:00", "13:00", count=2)
+        db.commit()
+
+        result = ScheduleEngine().generate(TEST_YEAR, TEST_MONTH, db)
+
+        oct7_pt = _pt_drafts(db, [], work_date=OCT_7)
+        assert len(oct7_pt) == 0
         oct7_warnings = [w for w in result["warnings"] if "2026-10-07" in w]
         assert len(oct7_warnings) == 1, (
-            f"인원 부족 경고 1개 발생해야 함. warnings={result['warnings']}"
+            f"PT 없음 → 경고 1개. warnings={result['warnings']}"
         )
 
 
@@ -221,8 +250,7 @@ class TestShortBlockWarning:
 
     def test_2h_block_cannot_assign_pt(self, db):
         """
-        09:00-11:00 (2h, count=1) → blk.hours < 3.0 → _cands=[] → 경고
-        PT 없음, DRAFT 없음
+        09:00-11:00 (2h, count=1) → blk.hours < 3.0 → 경고
         """
         store = _store(db)
         pt = _pt(db, "PT")
@@ -241,22 +269,23 @@ class TestShortBlockWarning:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Test 5: required_count=3, 정규직 1, PT 3명 → PT 2명만 배정
+# Test 5: required_count 충족 시 초과 배정 없음
 # ═══════════════════════════════════════════════════════════════════════
 
-class TestNoOverassignment:
+class TestNoOverAssignment:
 
-    def test_stops_at_required_count_satisfied(self, db):
+    def test_stops_when_required_count_reached(self, db):
         """
-        09:00-13:00 (count=3) + 정규직 1명 + PT 3명
+        09:00-13:00 (count=3) + 정규직(09-13) + PT 3명
         → 정규직 cov=1, ned=2
-        → PT_1 배정 → cov=2, ned=1
-        → PT_2 배정 → cov=3, ned=0 → 중단
-        → PT_3 미배정
-        총 PT DRAFT = 2
+        → PT_0 배정 → cov=2, ned=1
+        → PT_1 배정 → cov=3, ned=0 → 중단
+        → PT_2 미배정
+
+        PT DRAFT = 2
         """
         store = _store(db)
-        reg = _regular(db, store.id, start="09:00", end="13:00")
+        _regular(db, store.id, start="09:00", end="13:00")
         pts = [_pt(db, f"PT{i}") for i in range(3)]
 
         _req(db, store.id, DayOfWeek.WED, "09:00", "13:00", count=3)
@@ -267,26 +296,27 @@ class TestNoOverassignment:
         oct7_pt = _pt_drafts(db, [p.id for p in pts], work_date=OCT_7)
         assert len(oct7_pt) == 2, (
             f"required_count=3, 정규직 1 → PT 2명으로 충족. "
-            f"실제 PT DRAFT={len(oct7_pt)}, warnings={result['warnings']}"
+            f"실제={len(oct7_pt)}, warnings={result['warnings']}"
         )
         assert not result["warnings"]
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Test 6: 블록A 배정 PT는 블록B 같은 날 제외
+# Test 6: 하루 1회 제한 — 블록A 배정 PT는 블록B에서 제외
 # ═══════════════════════════════════════════════════════════════════════
 
-class TestDailyLimitCrossBlocks:
+class TestDailyLimit:
 
-    def test_pt_assigned_to_block_a_excluded_from_block_b(self, db):
+    def test_pt_on_block_a_excluded_from_block_b(self, db):
         """
-        블록A: 09:00-13:00 (4h), 블록B: 18:00-23:00 (5h) — 비인접
+        블록A: 09:00-13:00 (4h, count=1)
+        블록B: 18:00-23:00 (5h, count=1)  — 비인접
         PT_A, PT_B 2명
 
-        블록A 처리: PT_A 배정 → _pt_assigned_days[PT_A].add(date)
-        블록B 처리: PT_A 제외 → PT_B만 후보 → PT_B 배정
+        블록A → PT_A 배정 → _pt_assigned_days[PT_A].add(date)
+        블록B → PT_A 제외 → PT_B만 배정
 
-        결과: PT_A = 블록A, PT_B = 블록B (서로 다른 블록)
+        결과: PT_A=09-13, PT_B=18-23
         """
         store = _store(db)
         pt_a = _pt(db, "A")
@@ -300,11 +330,11 @@ class TestDailyLimitCrossBlocks:
 
         oct7_pt = _pt_drafts(db, [pt_a.id, pt_b.id], work_date=OCT_7)
         assert len(oct7_pt) == 2, (
-            f"비인접 2블록 → 각각 다른 PT = 2 DRAFT. "
+            f"비인접 2블록 → 서로 다른 PT = 2 DRAFT. "
             f"실제={len(oct7_pt)}, warnings={result['warnings']}"
         )
         assert not result["warnings"]
         assigned_ids = [d.employee_id for d in oct7_pt]
-        assert len(set(assigned_ids)) == 2, "두 블록에 서로 다른 PT가 배정되어야 함"
+        assert len(set(assigned_ids)) == 2, "두 블록에 서로 다른 PT 배정"
         start_times = sorted(d.start_time for d in oct7_pt)
-        assert start_times == ["09:00", "18:00"], "블록A와 블록B에 각각 배정"
+        assert start_times == ["09:00", "18:00"]

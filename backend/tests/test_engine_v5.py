@@ -116,15 +116,13 @@ class TestWorkBlockMerging:
         assert oct7_drafts[0].end_time == "13:00", "병합 블록 종료 시간 확인"
         assert not result["warnings"]
 
-    def test_adjacent_different_count_merges_into_one_block(self, db):
+    def test_adjacent_different_count_stays_separate(self, db):
         """
-        인접 슬롯은 required_count가 달라도 하나의 WorkBlock으로 병합
-        (v2 설계: 모든 인접 슬롯 병합, 내부 Segment로 required_count 경계 보존)
+        인접 슬롯이어도 required_count 다르면 별도 WorkBlock
 
         09:00-13:00 (4h, count=1) + 13:00-18:00 (5h, count=2)
-        → WorkBlock: 09:00-18:00 (Segment1: count=1, Segment2: count=2)
-        → ned_block = max(1, 2) = 2
-        → 3명 PT 중 2명 배정 (모두 09:00-18:00), 1명 초과는 배정 안됨
+        → WorkBlock A: 09:00-13:00 (count=1), WorkBlock B: 13:00-18:00 (count=2)
+        → 3명 PT → BlockA에 1명, BlockB에 2명 = 총 3 DRAFT
         """
         store = _store(db)
         pts = [_pt(db, f"PT{i}") for i in range(3)]
@@ -136,14 +134,14 @@ class TestWorkBlockMerging:
         result = ScheduleEngine().generate(TEST_YEAR, TEST_MONTH, db)
 
         oct7_drafts = _get_drafts(db, work_date=OCT_7)
-        assert len(oct7_drafts) == 2, (
-            f"병합된 1개 WorkBlock, ned_block=2 → 2 DRAFT여야 함. "
+        assert len(oct7_drafts) == 3, (
+            f"별도 2블록 → BlockA 1명 + BlockB 2명 = 3 DRAFT여야 함. "
             f"실제={len(oct7_drafts)}, warnings={result['warnings']}"
         )
         assert not result["warnings"]
-        # 두 DRAFT 모두 블록 전체 범위 (09:00-18:00)
-        assert all(d.start_time == "09:00" for d in oct7_drafts)
-        assert all(d.end_time == "18:00" for d in oct7_drafts)
+        start_times = [d.start_time for d in oct7_drafts]
+        assert start_times.count("09:00") == 1, "BlockA에 1명 배정"
+        assert start_times.count("13:00") == 2, "BlockB에 2명 배정"
 
     def test_gap_creates_separate_blocks(self, db):
         """
