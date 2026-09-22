@@ -57,7 +57,7 @@ export default function Schedule() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [validating, setValidating] = useState(false);
-  const [genResult, setGenResult] = useState<{ created: number; warnings: string[] } | null>(null);
+  const [genResult, setGenResult] = useState<{ created: number; warnings: string[]; reqs_loaded: number } | null>(null);
   const [editTarget, setEditTarget] = useState<ScheduleEntry | null | 'new'>(null);
   const [addDefaultDate, setAddDefaultDate] = useState('');
   const [calDetailDate, setCalDetailDate] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export default function Schedule() {
     setGenerating(true); setGenResult(null);
     try {
       const res = await scheduleApi.generate(year, month);
-      setGenResult({ created: res.data.created, warnings: res.data.warnings });
+      setGenResult({ created: res.data.created, warnings: res.data.warnings, reqs_loaded: res.data.reqs_loaded ?? 0 });
       await loadAll();
     } catch (e: any) {
       alert(`스케줄 생성 오류: ${e.message}`);
@@ -242,6 +242,7 @@ export default function Schedule() {
       {genResult && (
         <div className={`gen-result ${genResult.created === 0 ? 'gen-result--zero' : genResult.warnings.length > 0 ? 'gen-result--warn' : 'gen-result--ok'}`}>
           <strong>생성 완료: {genResult.created}개</strong>
+          {genResult.reqs_loaded > 0 && <span style={{ marginLeft: 12, fontSize: '0.85em', color: '#666' }}>(필요인원 설정 {genResult.reqs_loaded}건 로드됨)</span>}
           {genResult.created === 0 && (
             <div className="gen-zero-help">
               <p>스케줄이 생성되지 않았습니다. 아래 항목을 확인해주세요:</p>

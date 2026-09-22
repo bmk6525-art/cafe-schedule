@@ -9,7 +9,6 @@ HARD CONSTRAINT (반드시 준수):
   5. 동일 직원 동시에 여러 매장 금지
   6. 정규직 주 40시간 준수
   7. 정규직 주 5일 준수
-  8. 파트타이머 하루 최소 근무시간 3시간 (3시간 미만 슬롯 미배정)
 
 SOFT CONSTRAINT (가능하면 준수):
   1. 매장별 필요인원 부족 최소화
@@ -107,7 +106,8 @@ class ScheduleEngine:
 
         # 이번 달 필요인원: (store_id, day_of_week) → [StaffRequirement]
         reqs_map: dict = defaultdict(list)
-        for r in db.query(StaffRequirement).filter_by(year=year, month=month).all():
+        _reqs_all = db.query(StaffRequirement).filter_by(year=year, month=month).all()
+        for r in _reqs_all:
             reqs_map[(r.store_id, r.day_of_week)].append(r)
         for key in reqs_map:
             reqs_map[key].sort(key=lambda r: r.start_time)
@@ -171,6 +171,12 @@ class ScheduleEngine:
                 _pt_assigned_days[_s.employee_id].add(_s.work_date)
         created = 0
         warnings = []
+        reqs_loaded = len(_reqs_all)
+        if reqs_loaded == 0:
+            warnings.append(
+                f"[필요인원 미설정] {year}년 {month}월 필요인원 설정이 없습니다. "
+                "'매장 관리'에서 시간대별 필요인원을 먼저 설정해주세요."
+            )
         days_in_month = calendar.monthrange(year, month)[1]
 
         inserted_set: set = set()
@@ -247,10 +253,6 @@ class ScheduleEngine:
                         continue
 
                     _sh = (_time_to_min(_rq.end_time) - _time_to_min(_rq.start_time)) / 60
-                    # 하루 최소 근무시간 3시간 미만 슬롯은 파트타이머 미배정
-                    if _sh < 3.0:
-                        _done_pos.append(_pos)
-                        continue
                     _cands = []
                     for _pt in part_timers:
                         if work_date in _pt_assigned_days[_pt.id]:
@@ -326,7 +328,7 @@ class ScheduleEngine:
         if new_rows:
             db.execute(sa_insert(Schedule), new_rows)
         db.commit()
-        return {'created': created, 'warnings': warnings}
+        return {'created': created, 'warnings': warnings, 'reqs_loaded': reqs_loaded}
 
     def _is_available_cached(
             self, pt: Employee, work_date: date, dow: DayOfWeek,

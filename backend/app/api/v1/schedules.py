@@ -129,6 +129,7 @@ def generate_schedule(year: int, month: int, db: Session = Depends(get_db)):
             'message': f"스케줄 생성 완료: {result['created']}개 생성",
             'created': result['created'],
             'warnings': result['warnings'],
+            'reqs_loaded': result.get('reqs_loaded', 0),
             'success': True,
         }
     finally:
